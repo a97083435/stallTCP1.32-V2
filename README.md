@@ -487,13 +487,19 @@ let SUBINI = 'https://raw.githubusercontent.com/'+'cm'+'liu/ACL4SSR/main/'+'Cl'+
 
 **Worker全新界面 / Snippets界面：**
 
-<img width="1914" height="915" alt="image" src="https://github.com/user-attachments/assets/16f1042d-008a-4bf0-bfa5-a26eb5ceee69" />
-<img width="1920" height="916" alt="image" src="https://github.com/user-attachments/assets/c066513e-27aa-4a8d-a4a1-61d377b74142" />
-<img width="1920" height="911" alt="image" src="https://github.com/user-attachments/assets/b2fc6d97-3ba3-461b-9056-48db24b6e6ee" />
-<img width="1916" height="912" alt="image" src="https://github.com/user-attachments/assets/f87c1b8a-6f80-4bbd-9aa1-717bb120301d" />
-<img width="1913" height="906" alt="image" src="https://github.com/user-attachments/assets/592442d4-9f60-49ab-b42c-dc097e8fa35f" />
-<img width="1914" height="913" alt="image" src="https://github.com/user-attachments/assets/56a879cf-d331-44dc-a5bd-5ba2a078432c" />
-<img width="1920" height="919" alt="image" src="https://github.com/user-attachments/assets/912adef1-0b76-428b-8700-afee562611ce" />
+   Worker全新界面
+<img width="1920" height="918" alt="image" src="https://github.com/user-attachments/assets/c65f609d-60a0-49c7-8f82-bd66a1498478" />
+<img width="1920" height="918" alt="image" src="https://github.com/user-attachments/assets/029905af-cad8-489d-bc7d-45946518832a" />
+<img width="1900" height="916" alt="image" src="https://github.com/user-attachments/assets/0f6793ad-afe0-43fa-bc69-c9ecff6ed0cc" />
+<img width="1920" height="918" alt="image" src="https://github.com/user-attachments/assets/555c411d-3377-4e99-bb89-2ac32d9e8d46" />
+<img width="1920" height="918" alt="image" src="https://github.com/user-attachments/assets/9d215d10-98ac-4cdb-81ce-15787fcc43d0" />
+<img width="1920" height="918" alt="image" src="https://github.com/user-attachments/assets/0427d1cf-aad0-44c0-8ac3-243dd73fddd3" />
+
+   Snippets全新界面 
+<img width="1920" height="918" alt="image" src="https://github.com/user-attachments/assets/6473a97d-217b-415c-8198-6571e87f1add" />
+<img width="820" height="916" alt="image" src="https://github.com/user-attachments/assets/8639f7aa-8ece-4405-9199-278b483f183c" />
+
+
 
 ---
 

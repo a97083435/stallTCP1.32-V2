@@ -1,4 +1,4 @@
-# StallTCP1.32V2 节点订阅管理面板 (D1 数据库增强版)
+<img width="948" height="485" alt="image" src="https://github.com/user-attachments/assets/ff5e2d7d-a753-483f-bd9f-db3a0b732913" /># StallTCP1.32V2 节点订阅管理面板 (D1 数据库增强版)
 
 **这是一个基于 Cloudflare Workers / Snippets 的高级节点订阅管理与分发系统。**
 
@@ -738,30 +738,32 @@ CREATE TABLE IF NOT EXISTS stats (date TEXT PRIMARY KEY, count INTEGER DEFAULT 0
 1.  登录 Cloudflare Dashboard。
 2.  找到 **计算 (Workers & Pages)** -> **概述**。
 3.  选择 **从 Hello World! 开始**。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/2b80a97b-ee57-42a8-be1a-8180254f54dc" />
-4.  输入任意名称，点击 **部署**。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/b26217ed-d17c-465d-bcbd-b232ab5a4fd0" />
-5.  在 Workers 列表找到刚部署的项目，点击 **编辑代码**。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/a7f0c75a-56c3-467b-a07f-d37cafb8dd6c" />
-6.  **清空**原有代码，将项目中的 **`_worker.js`** 内容完整复制粘贴进去。
-7.  点击右上角 **保存并部署**。
+    <img width="948" height="485" alt="image" src="https://github.com/user-attachments/assets/b8246b46-c7c5-4f93-b4c9-9fa65c59f551" />
+5.  输入任意名称，点击 **部署**。
+    <img width="909" height="675" alt="image" src="https://github.com/user-attachments/assets/fa380b77-0f1d-45c6-86f9-a710bad78c50" />
+6.  在 Workers 列表找到刚部署的项目，点击 **编辑代码**。
+    <img width="1920" height="914" alt="image" src="https://github.com/user-attachments/assets/a6e38409-586d-49f5-805c-44ae66696d94" />
+7.  **清空**原有代码，将项目中的 **`_worker.js`** 内容完整复制粘贴进去。
+8.  点击右上角 **保存并部署**。
 
 #### B. Cloudflare Pages 部署
 
 **注意：修改任何内容都需要重新上传一次代码**
 
 1.  登录 Cloudflare -> **Workers 和 Pages**。
-    <img width="600" alt="image" src="https://github.com/user-attachments/assets/75c41546-cc6a-4a2f-9fa5-3632f0d89104" />
+    <img width="249" height="71" alt="image" src="https://github.com/user-attachments/assets/dbadc6b9-6617-46c0-abde-ab37b72df6e8" />
 2.  点击 **创建应用程序**。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/6ddd7c84-4a4f-4ddc-bd41-f2d550139999" />
+    <img width="1550" height="186" alt="image" src="https://github.com/user-attachments/assets/1adcf128-78af-40b4-b113-0b2d7f178774" />
 3.  点击下方的 **Get started** 跳转到 Pages 界面。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/f5fdaa8d-d86a-471e-93de-9107db440443" />
+   <img width="953" height="460" alt="image" src="https://github.com/user-attachments/assets/84688dc4-9248-4e1b-a27a-c40b8904fbf4" />
+   <img width="1091" height="423" alt="image" src="https://github.com/user-attachments/assets/67e9d96e-4fcc-4afd-85db-b8ae39051a74" />
+
 
 **方法 1：GitHub 自动同步 (推荐)**
-1.  选择 **连接到 Git**。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/8932221a-6480-491d-baf9-a26fc67a852b" />
+1.  选择 **导入现有 Git 存储库**。
+    <img width="680" height="212" alt="image" src="https://github.com/user-attachments/assets/d92f2109-49c8-4f50-b4c5-35c5458b1a40" />
 2.  选择你 Fork 的 GitHub 仓库。
-    <img width="800" alt="image" src="https://github.com/user-attachments/assets/2518c4e5-8503-4b4c-80f9-6ca06dfb0df9" />
+    <img width="1101" height="801" alt="image" src="https://github.com/user-attachments/assets/e43adb91-091d-4b77-a2bf-90340c583177" />
 3.  **特别注意**：后续修改内容要在 GitHub 上的 `_worker.js` 进行修改，之后会自动同步到 Pages。
 4.  点击 **开始设置**，然后 **保存并部署**。
     <img width="800" alt="image" src="https://github.com/user-attachments/assets/1c215f82-98fc-42d0-aed5-2bd032e3b859" />

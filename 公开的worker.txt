@@ -781,6 +781,7 @@ export default {
       const _UUID = env.KEY ? await getDynamicUUID(env.KEY, env.UUID_REFRESH || 86400) : (await getSafeEnv(env, 'UUID', UUID));
       const _WEB_PW = await getSafeEnv(env, 'WEB_PASSWORD', WEB_PASSWORD);
       const _SUB_PW = await getSafeEnv(env, 'SUB_PASSWORD', SUB_PASSWORD);
+      const _SUB_TOKEN = (await getSafeEnv(env, 'SUB_TOKEN', SUB_TOKEN) || '').trim();
       
       let _PROXY_IP = await getSafeEnv(env, 'PROXYIP', DEFAULT_PROXY_IP);
 
@@ -904,7 +905,6 @@ export default {
           // 构造上游 subUrl（ST裂变/原始SUB，逻辑不变）
           let _subUrl;
           {
-              const _SUB_TOKEN = await getSafeEnv(env, 'SUB_TOKEN', SUB_TOKEN);
               if (_SUB_TOKEN) {
                   const _desireIPs = await getCustomIPs(env, _DLS);
                   const _desireIP = (_desireIPs[0] || _PROXY_IP || host);
@@ -972,7 +972,9 @@ export default {
 
             if (success) {
                 try {
-                  let decoded = atob(body);
+                  let decoded = body;
+                  try { decoded = decodeURIComponent(escape(atob(body))); }
+                  catch { try { decoded = atob(body); } catch {} }
                   let lines = decoded.split('\n').map(line => {
                     line = line.trim();
                     if (!line || !line.includes('://')) return line;
@@ -998,9 +1000,8 @@ export default {
                     }
                     return line;
                   });
-                  // 浏览器不 base64（方便调试），代理客户端 base64
-                  const isBrowser = UA_L.includes('mozilla') && !UA_L.includes('v2'+'ray') && !UA_L.includes('sha'+'dow'+'roc'+'ket') && !UA_L.includes('ha'+'pp');
-                  body = isBrowser ? lines.join('\n') : btoa(lines.join('\n'));
+                  // 所有客户端（包括浏览器）统一返回 UTF-8 Base64 订阅
+                  body = btoa(unescape(encodeURIComponent(lines.join('\n'))));
                 } catch(e) {}
                 _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
                 return new Response(body, { status: 200, headers: _subHeaders });
@@ -1010,8 +1011,7 @@ export default {
           // ===== 兜底：本地生成 =====
           const allIPs = await getCustomIPs(env, _DLS);
           const listText = genNodes(host, _UUID, requestProxyIp, allIPs, _PS);
-          const isBrowserFallback = UA_L.includes('mozilla') && !UA_L.includes('v2'+'ray') && !UA_L.includes('sha'+'dow'+'roc'+'ket') && !UA_L.includes('ha'+'pp');
-          const fallbackBody = isBrowserFallback ? listText : btoa(unescape(encodeURIComponent(listText)));
+          const fallbackBody = btoa(unescape(encodeURIComponent(listText)));
           _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
           return new Response(fallbackBody, { status: 200, headers: _subHeaders });
       }
@@ -1022,7 +1022,7 @@ export default {
           // ===== Desire 兼容模式：有 base= 参数时走节点裂变逻辑 =====
           if (baseLink) {
               const reqToken = url.searchParams.get('token');
-              const expectedToken = await getSafeEnv(env, 'SUB_TOKEN', SUB_TOKEN);
+              const expectedToken = _SUB_TOKEN;
               if (expectedToken && reqToken !== expectedToken) {
                   ctx.waitUntil(logAccessThrottled(env, clientIP, `${city},${country}`, "裂变订阅失败(Token错误)", 30));
                   const errNode = `${'vl'+'ess'}://00000000-0000-0000-0000-000000000000@127.0.0.1:80?${'enc'+'ryption'}=none&${'secu'+'rity'}=none&type=tcp#${encodeURIComponent('❌ Token验证失败')}`;
@@ -1125,7 +1125,7 @@ export default {
         const _STATS_ENABLED = await getSafeEnv(env, 'STATS_ENABLED', 'false');
         const _STATS_CHAT_ID = await getSafeEnv(env, 'STATS_CHAT_ID', '');
         const _CF_ZONE = _maskVal(await getSafeEnv(env, 'CF_ZONE_ID', ''));
-        return new Response(dashPage(url.hostname, _UUID, _PROXY_IP, _SUB_PW, _SUB_DOMAIN, _CONVERTER, env, clientIP, hasAuthCookie, tgState, cfState, _ADD, _ADDAPI, _ADDCSV, tgToken, tgId, cfId, cfToken, cfMail, cfKey, sysParams, _DASH_TITLE, _PROXY_CHECK_URL, _DLS, _ECH_ENABLED, _ECH_SNI_VAL, _ECH_DNS_VAL, _STATS_ENABLED, _STATS_CHAT_ID, _CF_ZONE), { status: 200, headers: noCacheHeaders });
+        return new Response(dashPage(url.hostname, _UUID, _PROXY_IP, _SUB_PW, _SUB_DOMAIN, _CONVERTER, _SUB_TOKEN, env, clientIP, hasAuthCookie, tgState, cfState, _ADD, _ADDAPI, _ADDCSV, tgToken, tgId, cfId, cfToken, cfMail, cfKey, sysParams, _DASH_TITLE, _PROXY_CHECK_URL, _DLS, _ECH_ENABLED, _ECH_SNI_VAL, _ECH_DNS_VAL, _STATS_ENABLED, _STATS_CHAT_ID, _CF_ZONE), { status: 200, headers: noCacheHeaders });
       }
       
       // 🟢 代理入口 - 混淆版
@@ -1403,10 +1403,15 @@ function loginPage(tgGroup, siteUrl, githubUrl, pageTitle) {
 }
 
 // 👇 修改：增加 proxyCheckUrl 参数
-function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clientIP, hasAuth, tgState, cfState, add, addApi, addCsv, tgToken, tgId, cfId, cfToken, cfMail, cfKey, sysParams, dashTitle, proxyCheckUrl, dls, echEnabled, echSni, echDns, statsEnabled, statsChatId, zoneId) {
+function dashPage(host, uuid, proxyip, subpass, subdomain, converter, subToken, env, clientIP, hasAuth, tgState, cfState, add, addApi, addCsv, tgToken, tgId, cfId, cfToken, cfMail, cfKey, sysParams, dashTitle, proxyCheckUrl, dls, echEnabled, echSni, echDns, statsEnabled, statsChatId, zoneId) {
     const defaultSubLink = `https://${host}/${subpass}`;
     const pathParam = proxyip ? "/proxyip=" + proxyip : "/";
-    const longLink = `https://${subdomain}/sub?uuid=${uuid}&${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
+    const linkParams = `${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
+    const regularLongLink = `https://${subdomain}/sub?uuid=${uuid}&${linkParams}`;
+    const baseNode = `${'vl'+'ess'}://${uuid}@${host}:443?${linkParams}#Worker`;
+    const longLink = subToken
+        ? `https://${subdomain}/sub?base=${encodeURIComponent(baseNode)}&token=${encodeURIComponent(subToken)}`
+        : regularLongLink;
     const safeVal = (str) => (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const jsStr = (s) => JSON.stringify(s || '').slice(1, -1);
     const getStatusLabel = (val, sysVal) => { if (!val) return ""; if (val === sysVal) return `<span class="source-tag sys">🔒 系统预设 (不可删除)</span>`; return `<span class="source-tag man">💾 后台配置 (可清除)</span>`; };
@@ -2626,6 +2631,90 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
         }
         .modal-btns { display: flex; gap: 10px; margin-top: 25px; flex-wrap: wrap; }
         .modal-btns button { flex: 1; min-width: 100px; }
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .theme-option {
+            position: relative;
+            display: block;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            background: rgba(79, 172, 254, 0.04);
+            cursor: pointer;
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+        .theme-option:hover {
+            transform: translateY(-2px);
+            border-color: var(--glass-blue);
+            background: rgba(79, 172, 254, 0.09);
+        }
+        .theme-option.selected,
+        .theme-option:focus-within {
+            border-color: var(--glass-cyan);
+            box-shadow: 0 0 0 3px rgba(67, 233, 229, 0.12), 0 10px 28px rgba(79, 172, 254, 0.18);
+        }
+        .theme-option input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .theme-preview {
+            display: block;
+            height: 92px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .theme-preview::after {
+            content: '';
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            height: 30px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            backdrop-filter: blur(8px);
+        }
+        .theme-preview.dark {
+            background: radial-gradient(circle at 75% 20%, #334d78 0, #18243b 28%, #070b14 72%);
+            color: #e8eaf6;
+        }
+        .theme-preview.light {
+            background: linear-gradient(160deg, #87ceeb 0%, #dff7ff 58%, #f8fafc 100%);
+            color: #0f172a;
+        }
+        .theme-preview-mark {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            font-size: 1.45rem;
+            filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.25));
+        }
+        .theme-choice-title { display: block; color: var(--text); font-size: 0.95rem; font-weight: 700; }
+        .theme-choice-desc { display: block; color: var(--text-dim); font-size: 0.75rem; margin-top: 4px; line-height: 1.5; }
+        .theme-storage-note {
+            margin-top: 16px;
+            padding: 10px 12px;
+            border-left: 3px solid var(--glass-blue);
+            border-radius: 8px;
+            background: rgba(79, 172, 254, 0.07);
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+        @media (max-width: 480px) {
+            .theme-options { grid-template-columns: 1fr; }
+            .theme-preview { height: 76px; }
+        }
 
         /* Toast提示 */
         #toast {
@@ -3011,7 +3100,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
 
         <!-- 右上角工具栏 -->
         <div class="top-nav">
-            <button class="tool-btn" onclick="toggleTheme()" data-tooltip="切换主题">🌗</button>
+            <button class="tool-btn" onclick="openThemeModal()" data-tooltip="主题设置" aria-label="主题设置">🌗</button>
             <button class="tool-btn" onclick="showModal('tgModal')" data-tooltip="TG通知">🤖 <span class="status-dot ${tgState ? 'on' : 'off'}"></span></button>
             <button class="tool-btn" onclick="showModal('cfModal')" data-tooltip="CF统计">☁️ <span class="status-dot ${cfState ? 'on' : 'off'}"></span></button>
             <button class="tool-btn logout" onclick="logout()" data-tooltip="退出">⏻</button>
@@ -3109,6 +3198,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
                     <div class="input-group-row" style="margin-bottom:15px">
                         <input type="text" id="autoSub" value="${defaultSubLink}" readonly style="flex:1">
                         <button class="btn btn-secondary" onclick="copyId('autoSub')">复制</button>
+                        <button class="btn btn-primary" onclick="testAutoSub()">测试</button>
                     </div>
                     <div class="input-block">
                         <label>订阅源地址 (Sub Domain)</label>
@@ -3160,7 +3250,8 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
                     </div>
                     <div class="input-block">
                         <label>手动订阅链接</label>
-                        <textarea id="finalLink">${longLink}</textarea>
+                        <input type="hidden" id="subToken" value="${safeVal(subToken)}">
+                        <textarea id="finalLink">${safeVal(longLink)}</textarea>
                     </div>
                     <div class="btn-group">
                         <button class="btn btn-success" onclick="copyId('finalLink')">复制链接</button>
@@ -3301,11 +3392,40 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
         </div>
     </div>
 
+    <!-- 主题设置模态框 -->
+    <div id="themeModal" class="modal" onclick="if(event.target===this)cancelThemeSelection()">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+            <div class="modal-head"><span id="themeModalTitle">🌗 主题设置</span><span class="close-btn" onclick="cancelThemeSelection()">×</span></div>
+            <div class="theme-options" role="radiogroup" aria-label="主题选择">
+                <label class="theme-option selected" data-theme-option="dark">
+                    <input type="radio" name="themeChoice" value="dark" onchange="previewTheme(this.value)" checked>
+                    <span class="theme-preview dark"><span class="theme-preview-mark">🌙</span></span>
+                    <span class="theme-choice-title">深色主题</span>
+                    <span class="theme-choice-desc">默认主题 · 星空与深色玻璃效果</span>
+                </label>
+                <label class="theme-option" data-theme-option="light">
+                    <input type="radio" name="themeChoice" value="light" onchange="previewTheme(this.value)">
+                    <span class="theme-preview light"><span class="theme-preview-mark">☀️</span></span>
+                    <span class="theme-choice-title">浅色主题</span>
+                    <span class="theme-choice-desc">天空渐变 · 明亮玻璃效果</span>
+                </label>
+            </div>
+            <div class="theme-storage-note">主题设置仅保存在当前浏览器中，不会写入 Worker、D1 或账号配置。</div>
+            <div class="modal-btns">
+                <button class="btn btn-secondary" onclick="cancelThemeSelection()">取消</button>
+                <button class="btn btn-primary" onclick="resetTheme()">恢复默认</button>
+                <button class="btn btn-success" onclick="saveTheme()">保存主题</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast">已复制</div>
 
     <script>
         const UUID = "${jsStr(uuid)}"; const CONVERTER = "${jsStr(converter)}"; const CLIENT_IP = "${jsStr(clientIP)}"; const HAS_AUTH = ${hasAuth};
         const ECH_ON_INIT = ${echEnabled === 'true'}; const ECH_SNI_INIT = "${jsStr(echSni)}"; const ECH_DNS_INIT = "${jsStr(echDns)}";
+        const THEME_STORAGE_KEY = 'ak_admin_theme';
+        let themeBeforePreview = 'dark';
         function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
         // 页面加载
@@ -3314,6 +3434,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
                 document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
                 window.location.reload();
             } else {
+                applyStoredTheme();
                 document.body.classList.add('loaded');
                 if(!document.getElementById('subDom').value) updateLink();
                 generateStars();
@@ -3468,6 +3589,11 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
             }
         }
 
+        function testAutoSub() {
+            const url = document.getElementById('autoSub').value.trim();
+            if(url) { fetch('?flag=log_sub_test'); window.open(url, '_blank', 'noopener'); }
+        }
+
         function testSub() {
             const url = document.getElementById('finalLink').value;
             if(url) { fetch('?flag=log_sub_test'); window.open(url); }
@@ -3532,7 +3658,83 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
             } catch(e) { alert('请求错误'); }
         }
 
-        function toggleTheme() { document.body.classList.toggle('light'); }
+        function normalizeTheme(theme) {
+            return theme === 'light' ? 'light' : 'dark';
+        }
+
+        function getCurrentTheme() {
+            return document.body.classList.contains('light') ? 'light' : 'dark';
+        }
+
+        function syncThemeOptions(theme) {
+            document.querySelectorAll('[data-theme-option]').forEach(option => {
+                const selected = option.dataset.themeOption === theme;
+                option.classList.toggle('selected', selected);
+                const input = option.querySelector('input[name="themeChoice"]');
+                if (input) input.checked = selected;
+            });
+        }
+
+        function applyTheme(theme) {
+            const normalized = normalizeTheme(theme);
+            document.body.classList.toggle('light', normalized === 'light');
+            syncThemeOptions(normalized);
+            return normalized;
+        }
+
+        function readStoredTheme() {
+            try {
+                return normalizeTheme(localStorage.getItem(THEME_STORAGE_KEY));
+            } catch(e) {
+                return 'dark';
+            }
+        }
+
+        function applyStoredTheme() {
+            applyTheme(readStoredTheme());
+        }
+
+        function openThemeModal() {
+            themeBeforePreview = getCurrentTheme();
+            applyTheme(themeBeforePreview);
+            showModal('themeModal');
+        }
+
+        function previewTheme(theme) {
+            applyTheme(theme);
+        }
+
+        function cancelThemeSelection() {
+            applyTheme(themeBeforePreview);
+            closeModal('themeModal');
+        }
+
+        function saveTheme() {
+            const selected = document.querySelector('input[name="themeChoice"]:checked');
+            const theme = applyTheme(selected ? selected.value : getCurrentTheme());
+            let persisted = true;
+            try {
+                localStorage.setItem(THEME_STORAGE_KEY, theme);
+            } catch(e) {
+                persisted = false;
+            }
+            themeBeforePreview = theme;
+            closeModal('themeModal');
+            showToast(persisted ? (theme === 'light' ? '已保存浅色主题' : '已保存深色主题') : '主题已切换，但浏览器未允许保存');
+        }
+
+        function resetTheme() {
+            let persisted = true;
+            try {
+                localStorage.removeItem(THEME_STORAGE_KEY);
+            } catch(e) {
+                persisted = false;
+            }
+            applyTheme('dark');
+            themeBeforePreview = 'dark';
+            closeModal('themeModal');
+            showToast(persisted ? '已恢复默认深色主题' : '已恢复深色主题，但浏览器未允许保存');
+        }
 
         // ECH UI 控制
         function updateEchUI() {
@@ -3557,6 +3759,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
             let host = document.getElementById('hostDom').value.trim();
             let p = document.getElementById('pIp').value.trim();
             let isCM = document.getElementById('cMode').checked;
+            const subToken = document.getElementById('subToken')?.value.trim() || '';
             let path = p ? "/proxyip=" + p : "/";
             const search = new URLSearchParams();
             search.set('uuid', UUID);
@@ -3571,7 +3774,18 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
             search.set('host', host);
             search.set('path', path);
             if (_echOn) { const _es = document.getElementById('echSni')?.value || 'cloudflare-ech.com'; const _ed = document.getElementById('echDns')?.value || ECH_DNS_INIT; search.set('ech', (_es ? _es + '+' : '') + _ed); }
-            let finalUrl = \`https://\${base}/sub?\${search.toString()}\`;
+            let finalUrl;
+            if (subToken) {
+                const nodeSearch = new URLSearchParams(search);
+                nodeSearch.delete('uuid');
+                const baseNode = \`vless://\${UUID}@\${host}:443?\${nodeSearch.toString()}#Worker\`;
+                const desireSearch = new URLSearchParams();
+                desireSearch.set('base', baseNode);
+                desireSearch.set('token', subToken);
+                finalUrl = \`https://\${base}/sub?\${desireSearch.toString()}\`;
+            } else {
+                finalUrl = \`https://\${base}/sub?\${search.toString()}\`;
+            }
             if (isCM) {
                 let subUrl = CONVERTER + "/sub?tar"+"get=" + ('cl'+'ash') + "&url=" + encodeURIComponent(finalUrl) + "&emo"+"ji=true&li"+"st=false&so"+"rt=false";
                 document.getElementById('finalLink').value = subUrl;
@@ -3582,13 +3796,20 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
 
         function tgCM() { updateLink(); }
 
+        let toastTimer = null;
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.opacity = 1;
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.style.opacity = 0, 2000);
+        }
+
         function copyId(id) {
             const el = document.getElementById(id);
             el.select();
             navigator.clipboard.writeText(el.value).then(() => {
-                const t = document.getElementById('toast');
-                t.style.opacity=1;
-                setTimeout(() => t.style.opacity=0, 2000);
+                showToast('已复制');
             });
         }
 

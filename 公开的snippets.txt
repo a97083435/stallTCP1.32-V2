@@ -28,10 +28,7 @@ export default {
       const u=new URL(r.url),UA=(r.headers.get("User-Agent")||"").toLowerCase();
       if(r.headers.get("Upgrade")?.toLowerCase()==="websocket"){
         const{proxyIP:pip,s5,enableSocks:es,globalProxy:gp}=parsePC(u.pathname);
-        const{0:cl,1:sv}=new WebSocketPair();
-        sv.accept();
-        handleTCP(sv,pip,s5,es,gp);
-        return new Response(null,{status:101,webSocket:cl});
+        const{0:cl,1:sv}=new WebSocketPair();sv.accept();sv.binaryType='arraybuffer';handleTCP(sv,pip,s5,es,gp);return new Response(null,{status:101,webSocket:cl});
       }
       const isSub=(SUB_PWD&&u.pathname===`/${SUB_PWD}`);
       if(!isSub&&/bot|spider|python|curl|wget|crawler/i.test(UA))return new Response(null,{status:403});

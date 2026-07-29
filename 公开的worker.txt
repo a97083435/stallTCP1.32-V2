@@ -972,9 +972,16 @@ export default {
 
             if (success) {
                 try {
-                  let decoded = body;
-                  try { decoded = decodeURIComponent(escape(atob(body))); }
-                  catch { try { decoded = atob(body); } catch {} }
+                  const nodeLinePattern = /(?:^|\n)\s*(?:vless|vmess|trojan|ssr?|hysteria2?|hy2|tuic):\/\//i;
+                  const rawBody = body.trim();
+                  let decoded = rawBody;
+                  if (!nodeLinePattern.test(decoded)) {
+                    const compactBody = rawBody.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+                    const paddedBody = compactBody + '='.repeat((4 - compactBody.length % 4) % 4);
+                    try { decoded = decodeURIComponent(escape(atob(paddedBody))); }
+                    catch { try { decoded = atob(paddedBody); } catch { decoded = ''; } }
+                  }
+                  if (!nodeLinePattern.test(decoded)) throw new Error('Invalid upstream subscription');
                   let lines = decoded.split('\n').map(line => {
                     line = line.trim();
                     if (!line || !line.includes('://')) return line;
@@ -1002,9 +1009,9 @@ export default {
                   });
                   // 所有客户端（包括浏览器）统一返回 UTF-8 Base64 订阅
                   body = btoa(unescape(encodeURIComponent(lines.join('\n'))));
+                  _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
+                  return new Response(body, { status: 200, headers: _subHeaders });
                 } catch(e) {}
-                _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
-                return new Response(body, { status: 200, headers: _subHeaders });
             }
           } catch(e) {}
 
@@ -1103,6 +1110,7 @@ export default {
 
       if (r.headers.get('Upgrade') !== 'websocket') {
         const noCacheHeaders = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin' };
+        if (url.pathname !== '/') return new Response('订阅密码错误或链接不存在', { status: 404, headers: { ...noCacheHeaders, 'Content-Type': 'text/plain; charset=utf-8' } });
         if (!hasAuthCookie) return new Response(loginPage(_TG_GROUP_URL, _SITE_URL, _GITHUB_URL, _LOGIN_TITLE), { status: 200, headers: noCacheHeaders });
         await sendTgMsg(ctx, env, "✅ 后台登录成功", r, "进入管理面板", true);
         ctx.waitUntil(logAccess(env, clientIP, `${city},${country}`, "登录后台"));

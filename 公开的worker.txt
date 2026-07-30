@@ -40,9 +40,9 @@ const P_S5 = 'so'+'cks5';
 
 // ECH + 指纹伪装配置
 let ECH = true;  // ECH 开关 (支持环境变量覆盖)
-let ECH_DNS = 'https://odvr.nic.cz/doh';
+let ECH_DNS = 'udp://208.67.220.220:443';
 let ECH_SNI = 'cloudflare-ech.com';
-let FP = ECH ? 'chrome' : 'randomized';
+let FP = 'chrome';
 
 // ECH Config 动态获取 (二进制 DoH wire format)
 async function _getECH() {
@@ -56,7 +56,7 @@ async function _getECH() {
     const qtype = new Uint8Array([0x00,0x41]);
     const qclass = new Uint8Array([0x00,0x01]);
     const query = new Uint8Array([...hdr, ...qname, ...qtype, ...qclass]);
-    const res = await fetch(ECH_DNS, {
+    const res = await fetch(/^https:\/\//i.test(ECH_DNS) ? ECH_DNS : 'https://dns.alidns.com/dns-query', {
       method: 'POST',
       headers: { 'content-type': 'appli'+'cation/'+'dns-m'+'essage', 'accept': 'appli'+'cation/'+'dns-m'+'essage' },
       body: query
@@ -98,18 +98,16 @@ async function _getECH() {
 
 // SB ECH 注入
 async function pSB(text, uuid) {
-  if (!ECH) return text;
   try {
     const cfg = JSON.parse(text);
-    const echPem = await _getECH();
-    if (!echPem) return text;
+    const echPem = ECH ? await _getECH() : null;
     const OB = 'out'+'bou'+'nds';
     if (cfg[OB]) {
       for (const node of cfg[OB]) {
         if (!node.tls) continue;
-        // UUID 过滤：只对自己的节点注入 ECH
+        // UUID 过滤：只处理本项目生成的节点
         if (uuid && node.uuid && node.uuid !== uuid && !(node['pass'+'word'] && node['pass'+'word'] === uuid)) continue;
-        node.tls.ech = { enabled: true, config: echPem };
+        if (ECH && echPem) node.tls.ech = { enabled: true, config: echPem };
         const UT = 'ut'+'ls';
         if (!node.tls[UT]) node.tls[UT] = {};
         node.tls[UT].enabled = true;
@@ -122,44 +120,33 @@ async function pSB(text, uuid) {
 
 // CL双格式 ECH 注入
 async function pCL(text, uuid, h) {
-  if (!ECH) return text;
   try {
     const _eo='ech'+'-opts',_qsn='query'+'-server'+'-name',_nsp='name'+'server'+'-po'+'licy';
-    // 获取 ECH Config base64 用于直接注入
-    let _echB64 = '';
-    try {
-      const _pem = await _getECH();
-      if (_pem) {
-        const m = _pem.match(/-----BEGIN ECH CONFIGS-----\n(.*)\n-----END ECH CONFIGS-----/);
-        if (m) _echB64 = m[1];
-      }
-    } catch(e) {}
     let y = text;
 
-    // --- 1. DNS 基础配置块（模板字符串，格式与参考 YAML 一致）---
-    const baseDnsBlock = 'dns:\n  enable: true\n  default-nameserver:\n    - 223.5.5.5\n    - 119.29.29.29\n    - 114.114.114.114\n  use-hosts: true\n  nameserver:\n    - https://sm2.doh.pub/dns-query\n    - https://dns.alidns.com/dns-query\n  fallback:\n    - 8.8.4.4\n    - 208.67.220.220\n  fallback-filter:\n    geoip: true\n    geoip-code: CN\n    ipcidr:\n      - 240.0.0.0/4\n      - 127.0.0.1/32\n      - 0.0.0.0/32\n    domain:\n      - \'+.google.com\'\n      - \'+.facebook.com\'\n      - \'+.youtube.com\'\n';
-    const hasDns = /^dns:\s*(?:\n|$)/m.test(y);
-    if (!hasDns) y = baseDnsBlock + y;
+    if (ECH) {
+      // Clash/Mihomo 通过 query-server-name 动态查询 ECHConfig
+      const baseDnsBlock = 'dns:\n  enable: true\n  default-nameserver:\n    - 223.5.5.5\n    - 119.29.29.29\n    - 114.114.114.114\n  use-hosts: true\n  nameserver:\n    - https://sm2.doh.pub/dns-query\n    - https://dns.alidns.com/dns-query\n  fallback:\n    - 8.8.4.4\n    - 208.67.220.220\n  fallback-filter:\n    geoip: true\n    geoip-code: CN\n    ipcidr:\n      - 240.0.0.0/4\n      - 127.0.0.1/32\n      - 0.0.0.0/32\n    domain:\n      - \'+.google.com\'\n      - \'+.facebook.com\'\n      - \'+.youtube.com\'\n';
+      if (!/^dns:\s*(?:\n|$)/m.test(y)) y = baseDnsBlock + y;
 
-    // --- 2. nameserver-policy 注入（双域名+双DoH）---
-    const _bkDoH='https://do'+'h.cm.edu.kg/'+'C'+'ML'+'iu'+'ssss';
-    const ne='    "'+h+'":\n      - '+ECH_DNS+'\n      - '+_bkDoH+'\n    "'+ECH_SNI+'":\n      - '+ECH_DNS+'\n      - '+_bkDoH;
-    const hasNsp = /^\s{2}nameserver-policy:\s*(?:\n|$)/m.test(y);
-    if (hasNsp) {
-      y = y.replace(/^(\s{2}nameserver-policy:\s*\n)/m, '$1' + ne + '\n');
-    } else {
-      const ls = y.split('\n');
-      let di = -1, iD = false;
-      for (let i = 0; i < ls.length; i++) {
-        if (/^dns:\s*$/.test(ls[i])) { iD = true; continue; }
-        if (iD && /^[a-zA-Z]/.test(ls[i])) { di = i; break; }
+      const _bkDoH='https://do'+'h.cm.edu.kg/'+'C'+'ML'+'iu'+'ssss';
+      const ne='    "'+h+'":\n      - '+ECH_DNS+'\n      - '+_bkDoH+'\n    "'+ECH_SNI+'":\n      - '+ECH_DNS+'\n      - '+_bkDoH;
+      const hasNsp = /^\s{2}nameserver-policy:\s*(?:\n|$)/m.test(y);
+      if (hasNsp) {
+        y = y.replace(/^(\s{2}nameserver-policy:\s*\n)/m, '$1' + ne + '\n');
+      } else {
+        const ls = y.split('\n');
+        let di = -1, iD = false;
+        for (let i = 0; i < ls.length; i++) {
+          if (/^dns:\s*$/.test(ls[i])) { iD = true; continue; }
+          if (iD && /^[a-zA-Z]/.test(ls[i])) { di = i; break; }
+        }
+        const nspBlock = '  ' + _nsp + ':\n' + ne;
+        if (di > 0) { ls.splice(di, 0, nspBlock); y = ls.join('\n'); }
+        else { y += '\n' + nspBlock + '\n'; }
       }
-      const nspBlock = '  ' + _nsp + ':\n' + ne;
-      if (di > 0) { ls.splice(di, 0, nspBlock); y = ls.join('\n'); }
-      else { y += '\n' + nspBlock + '\n'; }
     }
 
-    // --- 3. 节点 ech-opts 注入（Flow + Block 双格式）---
     const L=y.split('\n'),R=[];let i=0;
     while(i<L.length){const l=L[i],tl=l.trim();
       if(tl.startsWith('- {')&&tl.includes('uuid:')){
@@ -167,8 +154,8 @@ async function pCL(text, uuid, h) {
         while(bc>0&&i+1<L.length){i++;fn+='\n'+L[i];bc+=(L[i].match(/\{/g)||[]).length-(L[i].match(/\}/g)||[]).length;}
         const um=fn.match(/uuid:\s*([^,}\n]+)/);
         if(um&&um[1].trim()===uuid.trim()){
-          fn=fn.replace(/client-fingerprint:\s*[^,}\s]+/i,'client-fingerprint: chrome');
-          fn=fn.replace(/\}(\s*)$/,`, ${_eo}: {enable: true, ${_qsn}: ${ECH_SNI}${_echB64 ? ', config: ' + _echB64 : ''}}}$1`);
+          fn=fn.replace(/client-fingerprint:\s*[^,}\s]+/i,'client-fingerprint: '+FP);
+          if(ECH) fn=fn.replace(/\}(\s*)$/, ', '+_eo+': {enable: true, '+_qsn+': '+ECH_SNI+'}}$1');
         }
         R.push(fn);i++;
       }else if(tl.startsWith('- name:')){
@@ -180,9 +167,9 @@ async function pCL(text, uuid, h) {
           nl.push(nx);i++;}
         const um=nl.join('\n').match(/uuid:\s*([^\n]+)/);
         if(um&&um[1].trim()===uuid.trim()){
-          for(let j=0;j<nl.length;j++){if(/client-fingerprint:/i.test(nl[j])){nl[j]=nl[j].replace(/client-fingerprint:\s*\S+/i,'client-fingerprint: chrome');break;}}
+          for(let j=0;j<nl.length;j++){if(/client-fingerprint:/i.test(nl[j])){nl[j]=nl[j].replace(/client-fingerprint:\s*\S+/i,'client-fingerprint: '+FP);break;}}
           let ii=-1;for(let j=nl.length-1;j>=0;j--)if(nl[j].trim()){ii=j;break;}
-          if(ii>=0){const ind=' '.repeat(bi+2);const echLines=[ind+_eo+':',ind+'  enable: true',ind+'  '+_qsn+': '+ECH_SNI];if(_echB64){echLines.push(ind+'  config: '+_echB64);}nl.splice(ii+1,0,...echLines);}}
+          if(ECH&&ii>=0){const ind=' '.repeat(bi+2);const echLines=[ind+_eo+':',ind+'  enable: true',ind+'  '+_qsn+': '+ECH_SNI];nl.splice(ii+1,0,...echLines);}}
         R.push(...nl);
       }else{R.push(l);i++;}}
     return R.join('\n');
@@ -803,7 +790,7 @@ export default {
       ECH = _echFlag === 'true';
       ECH_SNI = await getSafeEnv(env, 'ECH_SNI', ECH_SNI);
       ECH_DNS = await getSafeEnv(env, 'ECH_DNS', ECH_DNS);
-      FP = ECH ? 'chrome' : 'randomized';
+      FP = 'chrome';
 
       // 👇 变量去重与统一调用逻辑：优先 getSafeEnv(环境变量, 默认常量)
       const _TG_GROUP_URL = await getSafeEnv(env, 'TG_GROUP_URL', TG_GROUP_URL);
@@ -997,7 +984,7 @@ export default {
                       }
                     }
                     // FP 修正
-                    if (ECH && _echURI && /fp=/i.test(line)) {
+                    if (/fp=/i.test(line)) {
                       line = line.replace(/fp=[^&#]+/i, 'fp=' + FP);
                     }
                     // PS 后缀
@@ -3243,8 +3230,8 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, subToken, 
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                                 <span style="font-size:0.8rem;color:var(--text-dim)">指纹 (FP):</span>
-                                <span id="fpDisplay" style="font-size:0.8rem;color:var(--glass-green);font-weight:600">${echEnabled === 'true' ? 'chrome' : 'randomized'}</span>
-                                <span style="font-size:0.75rem;color:var(--text-dim)">(ECH开→chrome, 关→randomized)</span>
+                                <span id="fpDisplay" style="font-size:0.8rem;color:var(--glass-green);font-weight:600">chrome</span>
+                                <span style="font-size:0.75rem;color:var(--text-dim)">(ECH开关均为chrome)</span>
                             </div>
                             <div style="display:flex;gap:8px">
                                 <button class="btn btn-success" style="flex:1;padding:8px;font-size:0.85rem" onclick="saveEchConfig()">💾 保存 ECH 配置</button>
@@ -3750,7 +3737,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, subToken, 
             document.getElementById('echDetail').style.display = on ? '' : 'none';
             document.getElementById('echLabel').textContent = on ? '已启用' : '已关闭';
             const fpEl = document.getElementById('fpDisplay');
-            if (fpEl) fpEl.textContent = on ? 'chrome' : 'randomized';
+            if (fpEl) fpEl.textContent = 'chrome';
         }
         function saveEchConfig() {
             const data = {
@@ -3776,7 +3763,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, subToken, 
             search.set('sni', host);
             search.set('alpn', 'h3');
             const _echOn = document.getElementById('echSwitch')?.checked;
-            search.set('fp', _echOn ? 'chrome' : 'randomized');
+            search.set('fp', 'chrome');
             search.set('allowInsecure', '0');
             search.set('type', 'ws');
             search.set('host', host);

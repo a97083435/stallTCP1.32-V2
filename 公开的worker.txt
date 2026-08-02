@@ -41,12 +41,14 @@ const P_S5 = 'so'+'cks5';
 // ECH + 指纹伪装配置
 let ECH = true;  // ECH 开关 (支持环境变量覆盖)
 let ECH_DNS = 'https://odvr.nic.cz/doh';
+const ECH_DNS_BACKUP = 'https://lh.ddd.oaifree.com/query-dns';
 let ECH_SNI = 'cloudflare-ech.com';
 let FP = 'chrome';
 
 // ECH Config 动态获取 (二进制 DoH wire format)
-async function _getECH() {
+async function _getECH(doh = ECH_DNS, allowBackup = true) {
   if (!ECH) return null;
+  const fallback = () => allowBackup && doh !== ECH_DNS_BACKUP ? _getECH(ECH_DNS_BACKUP, false) : null;
   try {
     const parts = ECH_SNI.split('.');
     const qname = [];
@@ -56,12 +58,12 @@ async function _getECH() {
     const qtype = new Uint8Array([0x00,0x41]);
     const qclass = new Uint8Array([0x00,0x01]);
     const query = new Uint8Array([...hdr, ...qname, ...qtype, ...qclass]);
-    const res = await fetch(ECH_DNS, {
+    const res = await fetch(doh, {
       method: 'POST',
       headers: { 'content-type': 'appli'+'cation/'+'dns-m'+'essage', 'accept': 'appli'+'cation/'+'dns-m'+'essage' },
       body: query
     });
-    if (!res.ok) return null;
+    if (!res.ok) return fallback();
     const buf = new Uint8Array(await res.arrayBuffer());
     let offset = 12;
     const ancount = (buf[6] << 8) | buf[7];
@@ -92,8 +94,8 @@ async function _getECH() {
         }
       } else { offset += rdlen; }
     }
-    return null;
-  } catch (e) { return null; }
+    return fallback();
+  } catch (e) { return fallback(); }
 }
 
 // SB ECH 注入
@@ -140,7 +142,7 @@ async function pCL(text, uuid, h) {
       if (!/^dns:\s*(?:\n|$)/m.test(y)) y = baseDnsBlock + y;
 
       const _bkDoH='https://do'+'h.cm.edu.kg/'+'C'+'ML'+'iu'+'ssss';
-      const ne='    "'+h+'":\n      - '+ECH_DNS+'\n      - '+_bkDoH+'\n    "'+ECH_SNI+'":\n      - '+ECH_DNS+'\n      - '+_bkDoH;
+      const ne='    "'+h+'":\n      - '+ECH_DNS+'\n      - '+ECH_DNS_BACKUP+'\n      - '+_bkDoH+'\n    "'+ECH_SNI+'":\n      - '+ECH_DNS+'\n      - '+ECH_DNS_BACKUP+'\n      - '+_bkDoH;
       const hasNsp = /^\s{2}nameserver-policy:\s*(?:\n|$)/m.test(y);
       if (hasNsp) {
         y = y.replace(/^(\s{2}nameserver-policy:\s*\n)/m, '$1' + ne + '\n');

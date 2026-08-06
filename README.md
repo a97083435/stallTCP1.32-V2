@@ -196,7 +196,7 @@ let PIP = 'Pro'+'xyIP.US.'+'cm'+'liussss.net';  // 自定义的中转ip
 let SUB = 'https://owo.o00o.ooo/';  // 自定义的订阅源
 const NU = "https://nva.saas.ae.kg/"; // 🧭 导航按钮链接
 const TG = "https://t.me/zyssadmin";   // 群组
-const PC = "https://kaic.hidns.co/";  // 中转检测站
+const PC = "https://check.proxyip.cmliussss.net/";  // 中转检测站
 let SUBAPI = 'https://su'+'bapi.'+'cm'+'liussss.net';  // 自定义后端api
 let SUBINI = 'https://raw.githubusercontent.com/'+'cm'+'liu/ACL4SSR/main/'+'Cl'+'ash/config/ACL4SSR_Online_Full_MultiMode.ini'; // 自定义订阅配置转换ini
 const SBV12 = 'https://raw.githubusercontent.com/sinspired/su'+'b-st'+'ore-template/main/1.12.x/si'+'ng-b'+'ox.json'; // 禁止修改
@@ -244,7 +244,7 @@ const FP = 'chrome';  // ECH 开启和关闭均使用 chrome 指纹
 | `SUB` | 上游订阅器地址 | `https://owo.o00o.ooo/` | ⚪ 看情况 | ✅ 可改 |
 | `NU` | 登录页导航链接 | `https://nva.saas.ae.kg/` | ⚪ 看情况 | ✅ 可改 |
 | `TG` | Telegram 群组链接 | `https://t.me/zyssadmin` | ⚪ 看情况 | ✅ 可改 |
-| `PC` | ProxyIP 检测站链接 | `https://kaic.hidns.co/` | ⚪ 看情况 | ✅ 可改 |
+| `PC` | ProxyIP 检测站链接 | `https://check.proxyip.cmliussss.net/` | ⚪ 看情况 | ✅ 可改 |
 | `SUBAPI` | 订阅转换后端 API | `https://subapi.cmliussss.net` | ✅ 建议拆分 | ✅ 可改 |
 | `SUBINI` | Clash 配置模板 URL | ACL4SSR 配置链接 | ✅ 建议拆分 | ✅ 可改 |
 | `SBV12` | Sing-box v1.12 配置 | sinspired 模板链接 | ✅ 已拆分 | ❌ 禁止修改 |
@@ -594,7 +594,7 @@ let SUBINI = 'https://raw.githubusercontent.com/'+'cm'+'liu/ACL4SSR/main/'+'Cl'+
 | `TG_GROUP_URL` | **登录页交流群链接** | `https://t.me/zyssadmin` | ❌ |
 | `SITE_URL` | **登录页网站链接** | `https://blog.2026565.xyz/` | ❌ |
 | `GITHUB_URL` | **登录页项目链接** | `https://github.com/xtgm/stallTCP1.32-V2` | ❌ |
-| `PROXY_CHECK_URL` | **后台 ProxyIP 检测跳转地址** | `https://kaic.hidns.co/` | ❌ |
+| `PROXY_CHECK_URL` | **后台 ProxyIP 检测跳转地址** | `https://check.proxyip.cmliussss.net/` | ❌ |
 
 ### 📋 订阅转换配置 (可选)
 
@@ -1787,7 +1787,7 @@ fetch('https://your-worker.com?flag=add_whitelist', {
   ```
 
 **外部服务链接：**
-- **ProxyIP 检测网站**：`https://kaic.hidns.co/`
+- **ProxyIP 检测网站**：`https://check.proxyip.cmliussss.net/`
 - **TG 交流群**：`https://t.me/zyssadmin`
 - **TG 频道**：`https://t.me/cloudflareorg`
 

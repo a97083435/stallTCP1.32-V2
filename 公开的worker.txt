@@ -1,4 +1,4 @@
-import/**/{/**/connect as $c/**/}/**/from/**/'cloudflare:sockets';const _=o=>$c(o);
+import/**/{/**/connect as $c/**/}/**/from/**/'cloudflare:sockets';const _=(o,p)=>$c(o,p);
 
 // =============================================================================
 // 🟣 1. 用户配置区域 (优先级: 环境变量 > D1 > 硬编码)
@@ -228,6 +228,703 @@ const parseAddressPort = (seg) => {
   return [raw, 443];
 };
 
+/* ---------- TURNS custom TLS compatibility layer ---------- */
+const{TlsClient:t}=(()=>{const t=771,s=21,i=22,e=23,n=new TextEncoder,h=new TextDecoder,r=new Uint8Array(0),a=new Map(Object.entries({TLS_AES_128_GCM_SHA256:{id:4865,keyLen:16,ivLen:12,hash:"SHA-256",tls13:!0},TLS_AES_256_GCM_SHA384:{id:4866,keyLen:32,ivLen:12,hash:"SHA-384",tls13:!0},TLS_CHACHA20_POLY1305_SHA256:{id:4867,keyLen:32,ivLen:12,hash:"SHA-256",tls13:!0,chacha:!0},TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:{id:49199,keyLen:16,ivLen:4,hash:"SHA-256",kex:"ECDHE"},TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:{id:49200,keyLen:32,ivLen:4,hash:"SHA-384",kex:"ECDHE"},TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:{id:52392,keyLen:32,ivLen:12,hash:"SHA-256",kex:"ECDHE",chacha:!0},TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:{id:49195,keyLen:16,ivLen:4,hash:"SHA-256",kex:"ECDHE"},TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:{id:49196,keyLen:32,ivLen:4,hash:"SHA-384",kex:"ECDHE"},TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:{id:52393,keyLen:32,ivLen:12,hash:"SHA-256",kex:"ECDHE",chacha:!0}}).map(([,t])=>[t.id,t])),c=new Map([[29,"X25519"],[23,"P-256"]]),l=[2052,2053,2054,1025,1281,1537,1027,1283,1539],o=(...t)=>{const s=t=>{const i=[];for(const e of t)e instanceof Uint8Array?i.push(...e):Array.isArray(e)?i.push(...s(e)):"number"==typeof e&&i.push(e);return i};return new Uint8Array(s(t))},f=t=>[t>>8&255,255&t],u=(t,s)=>t[s]<<8|t[s+1],w=(t,s)=>t[s]<<16|t[s+1]<<8|t[s+2],p=(...t)=>{const s=t.filter(t=>t&&t.length>0),i=s.reduce((t,s)=>t+s.length,0),e=new Uint8Array(i);let n=0;for(const t of s)e.set(t,n),n+=t.length;return e},y=(t,s)=>{if(!t||!s||t.length!==s.length)return!1;let i=0;for(let e=0;e<t.length;e++)i|=t[e]^s[e];return 0===i},g=t=>"SHA-512"===t?64:"SHA-384"===t?48:32;async function k(t,s,i){const e=await crypto.subtle.importKey("raw",s,{name:"HMAC",hash:t},!1,["sign"]);return new Uint8Array(await crypto.subtle.sign("HMAC",e,i))}async function d(t,s){return new Uint8Array(await crypto.subtle.digest(t,s))}async function b(t,s,i,e,h="SHA-256"){const r=p(n.encode(s),i);let a=new Uint8Array(0),c=r;for(;a.length<e;){c=await k(h,t,c);const s=await k(h,t,p(c,r));a=p(a,s)}return a.slice(0,e)}async function A(t,s,i){return s&&s.length||(s=new Uint8Array(g(t))),k(t,s,i)}async function m(t,s,i,e,h){const r=n.encode("tls13 "+i);return async function(t,s,i,e){const n=g(t),h=Math.ceil(e/n);let r=new Uint8Array(0),a=new Uint8Array(0);for(let e=1;e<=h;e++)a=await k(t,s,p(a,i,[e])),r=p(r,a);return r.slice(0,e)}(t,s,o(f(h),r.length,r,e.length,e),h)}async function _(t="P-256"){if("X25519"===t){const t=await crypto.subtle.generateKey({name:"X25519"},!0,["deriveBits"]);return{kp:t,pk:new Uint8Array(await crypto.subtle.exportKey("raw",t.publicKey))}}const s=await crypto.subtle.generateKey({name:"ECDH",namedCurve:t},!0,["deriveBits"]);return{kp:s,pk:new Uint8Array(await crypto.subtle.exportKey("raw",s.publicKey))}}async function H(t,s,i="P-256"){if("X25519"===i){const i=await crypto.subtle.importKey("raw",s,{name:"X25519"},!1,[]);return new Uint8Array(await crypto.subtle.deriveBits({name:"X25519",public:i},t,256))}const e=await crypto.subtle.importKey("raw",s,{name:"ECDH",namedCurve:i},!1,[]),n="P-384"===i?384:"P-521"===i?528:256;return new Uint8Array(await crypto.subtle.deriveBits({name:"ECDH",public:e},t,n))}async function L(t,s,i,e){const n=await crypto.subtle.importKey("raw",t,{name:"AES-GCM"},!1,["encrypt"]);return new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv:s,additionalData:e,tagLength:128},n,i))}async function S(t,s,i,e){const n=await crypto.subtle.importKey("raw",t,{name:"AES-GCM"},!1,["decrypt"]);return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:s,additionalData:e,tagLength:128},n,i))}function U(t,s){return(t<<s|t>>>32-s)>>>0}function C(t,s,i,e,n){t[s]=t[s]+t[i]>>>0,t[n]=U(t[n]^t[s],16),t[e]=t[e]+t[n]>>>0,t[i]=U(t[i]^t[e],12),t[s]=t[s]+t[i]>>>0,t[n]=U(t[n]^t[s],8),t[e]=t[e]+t[n]>>>0,t[i]=U(t[i]^t[e],7)}function E(t,s,i){const e=new Uint32Array(16);e[0]=1634760805,e[1]=857760878,e[2]=2036477234,e[3]=1797285236;const n=new DataView(t.buffer,t.byteOffset,t.byteLength);for(let t=0;t<8;t++)e[4+t]=n.getUint32(4*t,!0);e[12]=s;const h=new DataView(i.buffer,i.byteOffset,i.byteLength);e[13]=h.getUint32(0,!0),e[14]=h.getUint32(4,!0),e[15]=h.getUint32(8,!0);const r=new Uint32Array(e);for(let t=0;t<10;t++)C(r,0,4,8,12),C(r,1,5,9,13),C(r,2,6,10,14),C(r,3,7,11,15),C(r,0,5,10,15),C(r,1,6,11,12),C(r,2,7,8,13),C(r,3,4,9,14);for(let t=0;t<16;t++)r[t]=r[t]+e[t]>>>0;return new Uint8Array(r.buffer.slice(0))}function v(t,s,i){const e=new Uint8Array(i.length);let n=1;for(let h=0;h<i.length;h+=64){const r=E(t,n++,s),a=Math.min(64,i.length-h);for(let t=0;t<a;t++)e[h+t]=i[h+t]^r[t]}return e}function x(t,s){const i=t=>{let s=0n;for(let i=t.length-1;i>=0;i--)s=s<<8n|BigInt(t[i]);return s},e=(1n<<130n)-5n,n=t.slice(0,16),h=i(t.slice(16,32));n[3]&=15,n[7]&=15,n[11]&=15,n[15]&=15,n[4]&=252,n[8]&=252,n[12]&=252;const r=i(n);let a=0n;for(let t=0;t<s.length;t+=16){const n=s.subarray(t,Math.min(t+16,s.length));a=(a+(i(n)+(1n<<BigInt(8*n.length))))*r%e}a=a+h&(1n<<128n)-1n;const c=new Uint8Array(16);for(let t=0;t<16;t++)c[t]=Number(a>>BigInt(8*t)&0xffn);return c}function T(t,s,i,e){const n=E(t,0,s).slice(0,32),h=v(t,s,i),r=(16-e.length%16)%16,a=(16-h.length%16)%16,c=new Uint8Array(e.length+r+h.length+a+16);c.set(e,0),c.set(h,e.length+r);const l=new DataView(c.buffer,e.length+r+h.length+a);l.setBigUint64(0,BigInt(e.length),!0),l.setBigUint64(8,BigInt(h.length),!0);const o=x(n,c);return p(h,o)}function D(t,s,i,e){if(i.length<16)throw 0;const n=i.slice(-16),h=i.slice(0,-16),r=E(t,0,s).slice(0,32),a=(16-e.length%16)%16,c=(16-h.length%16)%16,l=new Uint8Array(e.length+a+h.length+c+16);l.set(e,0),l.set(h,e.length+a);const o=new DataView(l.buffer,e.length+a+h.length+c);o.setBigUint64(0,BigInt(e.length),!0),o.setBigUint64(8,BigInt(h.length),!0);const f=x(r,l);let u=0;for(let t=0;t<16;t++)u|=n[t]^f[t];if(0!==u)throw 0;return v(t,s,h)}function B(s,i,e=t){return o(s,f(e),f(i.length),i)}function M(t,s){return o(t,(t=>[t>>16&255,t>>8&255,255&t])(s.length),s)}class P{constructor(){this.b=new Uint8Array(0)}feed(t){this.b=p(this.b,t)}next(){if(this.b.length<5)return null;const t=this.b[0],s=u(this.b,1),i=u(this.b,3);if(i>18432)throw 0;if(this.b.length<5+i)return null;const e=this.b.slice(5,5+i);return this.b=this.b.slice(5+i),{type:t,version:s,length:i,fragment:e}}}class q{constructor(){this.b=new Uint8Array(0)}feed(t){this.b=p(this.b,t)}next(){if(this.b.length<4)return null;const t=this.b[0],s=w(this.b,1);if(this.b.length<4+s)return null;const i=this.b.slice(4,4+s),e=this.b.slice(0,4+s);return this.b=this.b.slice(4+s),{type:t,length:s,body:i,raw:e}}}function I(t){let s=0;const i=u(t,s);s+=2;const e=t.slice(s,s+32);s+=32;const n=t[s++],r=t.slice(s,s+n);s+=n;const a=u(t,s);s+=2;const c=t[s++];let l=i,o=null,f=null;if(s<t.length){const i=u(t,s);s+=2;const e=s+i;for(;s+4<=e;){const i=u(t,s);s+=2;const e=u(t,s);s+=2;const n=t.slice(s,s+e);if(s+=e,43===i&&e>=2)l=u(n,0);else if(51===i&&e>=4){const t=u(n,0),s=u(n,2);o={group:t,key:n.slice(4,4+s)}}else 16===i&&e>=3&&(f=h.decode(n.slice(3,3+n[2])))}}const w=new Uint8Array([207,33,173,116,229,154,97,17,190,29,140,2,30,101,184,145,194,162,17,22,122,187,140,94,7,158,9,226,200,168,51,156]);return{version:i,sr:e,sid:r,cs:a,comp:c,sv:l,ks:o,alpn:f,isHRR:y(e,w),isTls13:772===l}}function K(t,s=0){let i=0;if(s){const s=t[i++];i+=s}if(i+3>t.length)return null;const e=w(t,i);if(i+=3,!e||i+3>t.length)return null;const n=w(t,i);return i+=3,n?t.slice(i,i+n):null}function G(t){const s={alpn:null};let i=2;const e=2+u(t,0);for(;i+4<=e;){const e=u(t,i);i+=2;const n=u(t,i);if(i+=2,16===e&&n>=3){const e=t[i+2];e>0&&i+3+e<=i+n&&(s.alpn=h.decode(t.slice(i+3,i+3+e)))}i+=n}return s}const R=t=>t&&1===t[0]&&112===t[1];function W(s,i,e,{tls13:h=!0,tls12:r=!0,alpn:a=null}={}){i=(t=>{if("["===(t=String(t??"").trim())[0]&&"]"===t[t.length-1]&&(t=t.slice(1,-1)),!t||t.includes(":"))return"";const s=t.split(".");if(4!==s.length)return t;for(const i of s){if(""===i||i.length>3)return t;let s=0;for(let e=0;e<i.length;e++){const n=i.charCodeAt(e)-48;if(n<0||n>9)return t;s=10*s+n}if(s>255)return t}return""})(i);const c=[];h&&c.push(4865,4866,4867),r&&c.push(49199,49200,52392,49195,49196,52393);const u=o(...c.flatMap(f)),w=[o(255,1,0,1,0)];if(i){const t=n.encode(i),s=o(0,f(t.length),t);w.push(o(f(0),f(s.length+2),f(s.length),s))}w.push(o(f(11),0,2,1,0)),w.push(o(f(10),0,6,0,4,0,29,0,23));const y=o(...l.flatMap(f));w.push(o(f(13),f(y.length+2),f(y.length),y));const g=Array.isArray(a)?a.filter(Boolean):a?[a]:[];if(g.length){const t=p(...g.map(t=>{const s=n.encode(t);return o(s.length,s)}));w.push(o(f(16),f(t.length+2),f(t.length),t))}if(h&&e){let t;if(w.push(r?o(f(43),0,5,4,3,4,3,3):o(f(43),0,3,2,3,4)),w.push(o(f(45),0,2,1,1)),e?.x25519&&e?.p256)t=p(o(0,29,f(e.x25519.length),e.x25519),o(0,23,f(e.p256.length),e.p256));else if(e?.x25519)t=o(0,29,f(e.x25519.length),e.x25519);else if(e?.p256)t=o(0,23,f(e.p256.length),e.p256);else{if(!(e instanceof Uint8Array))throw 0;t=o(0,23,f(e.length),e)}w.push(o(f(51),f(t.length+2),f(t.length),t))}const k=p(...w);return M(1,o(f(t),s,0,f(u.length),u,1,0,f(k.length),k))}const X=t=>{const s=new Uint8Array(8);return new DataView(s.buffer).setBigUint64(0,t,!1),s},O=(t,s)=>{const i=t.slice(),e=X(s);for(let t=0;t<8;t++)i[i.length-8+t]^=e[t];return i},V=(t,s,i,e)=>Promise.all([m(t,s,"key",r,i),m(t,s,"iv",r,e)]),j=t=>{let s=t.length-1;for(;s>=0&&0===t[s];)s--;if(s<0)throw 0;return{data:t.slice(0,s),type:t[s]}},Y=0xffffffffffffffffn;return{TlsClient:class{constructor(t,s={}){this.sk=t,this.sn=s.serverName||"",this.s13=!1!==s.tls13,this.s12=!1!==s.tls12,this.alpn=Array.isArray(s.alpn)?s.alpn:s.alpn?[s.alpn]:null,this.to=s.timeout??3e4,this.cr=crypto.getRandomValues(new Uint8Array(32)),this.sr=null,this.hk=[],this.hc=!1,this.na=null,this.cs=null,this.cc=null,this.is13=!1,this.ms=null,this.hs=null,this.cwk=null,this.swk=null,this.cwi=null,this.swi=null,this.chk=null,this.shk=null,this.chi=null,this.shi=null,this.cak=null,this.sak=null,this.cai=null,this.sai=null,this.cats=null,this.sats=null,this.csn=0n,this.ssn=0n,this.rp=new P,this.hp=new q,this.kps=new Map,this.ekp=null,this.sc=!1,this.pq=[],this.rr=[],this.closed=!1,this.closing=!1,this.failed=!1,this.wq=Promise.resolve(),this.rq=Promise.resolve(),this.cp=null,this.rb=new Uint8Array(65536)}rh(t){this.hk.push(t)}ts(){return 1===this.hk.length?this.hk[0]:p(...this.hk)}gfc(t){return a.get(t)||null}fc(){if(this.csn>Y)throw 0;return this.csn++}fs(){if(this.ssn>Y)throw 0;return this.ssn++}fail(){this.failed=!0,this.closed=!0;try{this.sk.close()}catch{}}async rc(t,s){if(!this.to)return s?t.read(s):t.read();let i;const e=s?t.read(s):t.read(),n=await Promise.race([e,new Promise(t=>i=setTimeout(t,this.to,0))]).finally(()=>clearTimeout(i));if(n)return n;try{await t.cancel("err")}catch{}try{await e}catch{}throw 0}async pr(t,s,i){for(;;){let i;for(;i=this.rp.next();)if(await s(i))return;const{value:e,done:n}=await this.rc(t);if(n)throw 0;this.rp.feed(e)}}async ph(t,e,n){for(let t;t=this.hp.next();)if(await e(t))return;return this.pr(t,async t=>{if(t.type===s){if(R(t.fragment))return;throw 0}if(t.type===i){this.hp.feed(t.fragment);for(let t;t=this.hp.next();)if(await e(t))return 1}},n)}async ac(t){if(!t?.length)throw 0;this.sc=!0}async handshake(){const[t,s]=await Promise.all([_("P-256"),_("X25519")]);this.kps=new Map([[23,t],[29,s]]),this.ekp=t.kp;const e=this.sk.readable.getReader(),n=this.sk.writable.getWriter();try{const h=W(this.cr,this.sn,{x25519:s.pk,p256:t.pk},{tls13:this.s13,tls12:this.s12,alpn:this.alpn});this.rh(h),await n.write(B(i,h,769));const r=await this.rsh(e);if(r.isHRR)throw 0;if(r.ks?.group&&this.kps.has(r.ks.group)){const t=this.kps.get(r.ks.group);this.ekp=t.kp}r.isTls13?await this.h13(e,n,r):await this.h12(e,n),this.hc=!0}finally{e.releaseLock(),n.releaseLock()}}async rsh(t){for(;;){const{value:e,done:n}=await this.rc(t);if(n)throw 0;let h;for(this.rp.feed(e);h=this.rp.next();){if(h.type===s){if(R(h.fragment))continue;throw 0}if(h.type!==i)continue;let t;for(this.hp.feed(h.fragment);t=this.hp.next();){if(2!==t.type)continue;this.rh(t.raw);const s=I(t.body),i=this.gfc(s.cs);if(!i||s.comp||s.isTls13!==!!i.tls13||s.isTls13&&!this.s13||!s.isTls13&&(!this.s12||771!==s.sv))throw 0;return this.sr=s.sr,this.cs=s.cs,this.cc=i,this.is13=s.isTls13,this.na=s.alpn||null,s}}}}async h12(t,e){let n=null,h=!1;if(await this.ph(t,async t=>{switch(t.type){case 11:{this.rh(t.raw);const s=K(t.body);if(!s)throw 0;await this.ac(s);break}case 12:this.rh(t.raw),n=function(t){let s=0;s++;const i=u(t,s);s+=2;const e=t[s++];return{nc:i,spk:t.slice(s,s+e)}}(t.body);break;case 14:return this.rh(t.raw),h=!0,1;case 13:throw 0;default:this.rh(t.raw)}},"err"),!this.sc)throw 0;if(!n)throw 0;const r=c.get(n.nc);if(!r)throw 0;const a=this.kps.get(n.nc);if(!a)throw 0;const l=await H(a.kp.privateKey,n.spk,r),f=M(16,o(a.pk.length,a.pk));this.rh(f);const g=this.cc.hash;this.ms=await b(l,"master secret",p(this.cr,this.sr),48,g);const k=this.cc.keyLen,A=this.cc.ivLen,m=await b(this.ms,"key expansion",p(this.sr,this.cr),2*k+2*A,g);this.cwk=m.slice(0,k),this.swk=m.slice(k,2*k),this.cwi=m.slice(2*k,2*k+A),this.swi=m.slice(2*k+A,2*k+2*A),await e.write(B(i,f)),await e.write(B(20,o(1)));const _=M(20,await b(this.ms,"client finished",await d(g,this.ts()),12,g));this.rh(_),await e.write(B(i,await this.e12(_,i)));let L=!1;await this.pr(t,async t=>{if(t.type===s){if(R(t.fragment))return;throw 0}if(20===t.type)return void(L=!0);if(t.type!==i||!L)return;const e=await this.d12(t.fragment,i);if(20!==e[0])return;const n=w(e,1),h=e.slice(4,4+n),r=await b(this.ms,"server finished",await d(g,this.ts()),12,g);if(!y(h,r))throw 0;return 1},"err")}async h13(t,n,h){const a=c.get(h.ks?.group);if(!a||!h.ks?.key?.length)throw 0;const l=this.cc.hash,o=g(l),f=this.cc.keyLen,u=this.cc.ivLen,w=await H(this.ekp.privateKey,h.ks.key,a),b=await A(l,null,new Uint8Array(o)),_=await m(l,b,"derived",await d(l,r),o);this.hs=await A(l,_,w);const L=await d(l,this.ts()),S=await m(l,this.hs,"c hs traffic",L,o),U=await m(l,this.hs,"s hs traffic",L,o);[this.chk,this.chi]=await V(l,S,f,u),[this.shk,this.shi]=await V(l,U,f,u);const C=await m(l,U,"finished",r,o);let E=!1;const v=async t=>{switch(t.type){case 8:{const s=G(t.body);s.alpn&&(this.na=s.alpn),this.rh(t.raw);break}case 11:{const s=K(t.body,1);if(!s)throw 0;await this.ac(s),this.rh(t.raw);break}case 13:throw 0;case 15:default:this.rh(t.raw);break;case 20:{const s=await k(l,C,await d(l,this.ts()));if(!y(s,t.body))throw 0;this.rh(t.raw),E=!0;break}}};await this.pr(t,async t=>{if(20===t.type||t.type===i)return;if(t.type===s){if(R(t.fragment))return;throw 0}if(t.type!==e)return;const{data:n,type:h}=await this.d13h(t.fragment),r=n;if(h===i){this.hp.feed(r);for(let t;t=this.hp.next();)if(await v(t),E)return 1}},"err");const x=await d(l,this.ts()),T=await m(l,this.hs,"derived",await d(l,r),o),D=await A(l,T,new Uint8Array(o)),P=await m(l,D,"c ap traffic",x,o),q=await m(l,D,"s ap traffic",x,o);this.cats=P,this.sats=q,[this.cak,this.cai]=await V(l,P,f,u),[this.sak,this.sai]=await V(l,q,f,u);const I=await m(l,S,"finished",r,o),W=M(20,await k(l,I,await d(l,this.ts())));this.rh(W),await n.write(B(e,await this.e13h(p(W,[i])))),this.csn=0n,this.ssn=0n}async e12(s,i,e=this.fc()){const n=X(e),h=p(n,[i],f(t),f(s.length));if(this.cc.chacha){const t=O(this.cwi,e);return T(this.cwk,t,s,h)}const r=n;return p(r,await L(this.cwk,p(this.cwi,r),s,h))}async d12(s,i,e=this.fs()){const n=X(e);if(this.cc.chacha){const h=O(this.swi,e);return D(this.swk,h,s,p(n,[i],f(t),f(s.length-16)))}const h=s.slice(0,8),r=s.slice(8);return S(this.swk,p(this.swi,h),r,p(n,[i],f(t),f(r.length-16)))}async e13h(t){const s=O(this.chi,this.fc()),i=o(e,3,3,f(t.length+16));return this.cc.chacha?T(this.chk,s,t,i):L(this.chk,s,t,i)}async d13h(t){const s=O(this.shi,this.fs()),i=o(e,3,3,f(t.length)),n=this.cc.chacha?D(this.shk,s,t,i):await S(this.shk,s,t,i);return j(n)}async e13(t,s=this.fc(),i=e){const n=p(t,[i]),h=O(this.cai,s),r=o(e,3,3,f(n.length+16));return this.cc.chacha?T(this.cak,h,n,r):L(this.cak,h,n,r)}async d13(t,s=this.fs(),i=this.sak,n=this.sai){const h=O(n,s),r=o(e,3,3,f(t.length)),a=this.cc.chacha?D(i,h,t,r):await S(i,h,t,r);return j(a)}write(t){if(!this.hc||this.failed||this.closing)return Promise.reject(0);const s=this.wq.then(()=>this._write(t)).catch(t=>{throw this.fail(),t});return this.wq=s.catch(()=>{}),s}async _write(t){if(this.failed||this.closing)throw 0;const s=this.sk.writable.getWriter();try{if(t.length<=16384)await s.write(B(e,this.is13?await this.e13(t):await this.e12(t,e)));else for(let i=0;i<t.length;){const n=[];for(let s=0;s<8&&i<t.length;s++,i+=16384){const s=t.subarray(i,Math.min(i+16384,t.length)),h=this.fc();n.push(this.is13?this.e13(s,h).then(t=>B(e,t)):this.e12(s,e,h).then(t=>B(e,t)))}await s.write(p(...await Promise.all(n)))}}finally{s.releaseLock()}}read(){if(this.failed)return Promise.reject(0);const t=this.rq.then(()=>this._read()).catch(t=>{throw this.fail(),t});return this.rq=t.catch(()=>{}),t}async _read(){for(;;){if(this.pq.length)return this.pq.shift();if(this.closed)return null;const t=[];let n;for(;t.length<8&&(n=this.rr.length?this.rr.shift():this.rp.next());){if(this.is13){if(20===n.type)continue;if(n.type!==e)throw 0}else if(n.type!==e&&n.type!==s&&n.type!==i)throw 0;t.push(n)}if(t.length){if(this.is13){const s=this.ssn,i=this.sak,e=this.sai;if(s+BigInt(t.length-1)>Y)throw 0;let n;try{n=await Promise.all(t.map((t,n)=>this.d13(t.fragment,s+BigInt(n),i,e)))}catch{n=null}if(n)for(let i=0;i<n.length;i++){this.ssn=s+BigInt(i+1);const e=await this.p13(n[i]);if(null!==e){i+1<t.length&&this.rr.unshift(...t.slice(i+1));const s=1===e?this.qku():null;await this.usr(),s&&await s;break}}else for(let s=0;s<t.length;s++){const i=await this.d13(t[s].fragment,this.ssn);this.ssn++;const e=await this.p13(i);if(null!==e){s+1<t.length&&this.rr.unshift(...t.slice(s+1));const i=1===e?this.qku():null;await this.usr(),i&&await i;break}}}else{const s=this.ssn;if(s+BigInt(t.length-1)>Y)throw 0;const i=await Promise.all(t.map((t,i)=>this.d12(t.fragment,t.type,s+BigInt(i))));this.ssn=s+BigInt(t.length);for(let s=0;s<i.length;s++)this.pt(i[s],t[s].type)}if(this.pq.length)return this.pq.shift();if(this.closed)return null;continue}if(this.closed)return null;const h=this.sk.readable.getReader({mode:"byob"});try{const{value:t,done:s}=await this.rc(h,this.rb);if(s)return null;t.length>49152?(this.rp.feed(t.subarray()),this.rb=new Uint8Array(65536)):(this.rp.feed(t.slice()),this.rb=new Uint8Array(t.buffer))}finally{h.releaseLock()}}}pt(t,n){if(n===e)this.pq.push(t);else if(n===s)this.pa(t);else if(n===i){let s;for(this.hp.feed(t);s=this.hp.next();)if(24===s.type)throw 0}}pa(t){if(2!==t.length)throw 0;if(0!==t[1])throw 0;this.closed=!0,this.close()}async p13({data:t,type:n}){if(n===e)return this.pq.push(t),null;if(n===s)return this.pa(t),null;if(n!==i)throw 0;let h,r=null;for(this.hp.feed(t);h=this.hp.next();)if(4!==h.type&&24===h.type){if(1!==h.body.length||h.body[0]>1||null!==r)throw 0;r=h.body[0]}return r}async usr(){const t=this.cc.hash,s=g(t);this.sats=await m(t,this.sats,"traffic upd",r,s),[this.sak,this.sai]=await V(t,this.sats,this.cc.keyLen,this.cc.ivLen),this.ssn=0n}qku(){const t=this.wq.then(()=>this.sku()).catch(t=>{throw this.fail(),t});return this.wq=t.catch(()=>{}),t}async sku(){if(this.failed||this.closing)throw 0;const t=this.sk.writable.getWriter();try{const s=M(24,o(0));await t.write(B(e,await this.e13(s,this.fc(),i)))}finally{t.releaseLock()}const s=this.cc.hash,n=g(s);this.cats=await m(s,this.cats,"traffic upd",r,n),[this.cak,this.cai]=await V(s,this.cats,this.cc.keyLen,this.cc.ivLen),this.csn=0n}close(){if(this.cp)return this.cp;if(this.failed||!this.hc){try{this.sk.close()}catch{}return this.cp=Promise.resolve()}this.closing=!0;const t=this.wq.then(async()=>{const t=this.sk.writable.getWriter();try{const i=o(1,0),n=this.is13?await this.e13(i,this.fc(),s):await this.e12(i,s);await t.write(B(this.is13?e:s,n))}finally{t.releaseLock()}});return this.cp=t.catch(()=>{}).finally(()=>{this.closed=!0;try{this.sk.close()}catch{}}),this.wq=this.cp,this.cp}}}})();
+
+/* ---------- shared TURN/TURNS TCP relay (RFC 6062) ---------- */
+const TURN_CONNECT_TIMEOUT_MS = 10000;
+const TURN_DNS_TTL_MS = 180000;
+const TURN_DNS_NEGATIVE_TTL_MS = 30000;
+const TURN_DNS_CACHE_LIMIT = 400;
+const TURN_MAGIC = new Uint8Array([0x21, 0x12, 0xa4, 0x42]);
+const TURN_TYPE = {
+  ALLOCATE_REQUEST: 0x0003,
+  ALLOCATE_SUCCESS: 0x0103,
+  REFRESH_REQUEST: 0x0004,
+  REFRESH_SUCCESS: 0x0104,
+  CREATE_PERMISSION_REQUEST: 0x0008,
+  CREATE_PERMISSION_SUCCESS: 0x0108,
+  CONNECT_REQUEST: 0x000a,
+  CONNECT_SUCCESS: 0x010a,
+  CONNECTION_BIND_REQUEST: 0x000b,
+  CONNECTION_BIND_SUCCESS: 0x010b
+};
+const TURN_ATTR = {
+  USERNAME: 0x0006,
+  MESSAGE_INTEGRITY: 0x0008,
+  ERROR_CODE: 0x0009,
+  LIFETIME: 0x000d,
+  XOR_PEER_ADDRESS: 0x0012,
+  REALM: 0x0014,
+  NONCE: 0x0015,
+  REQUESTED_TRANSPORT: 0x0019,
+  CONNECTION_ID: 0x002a
+};
+const _turnEncoder = new TextEncoder();
+const _turnDecoder = new TextDecoder();
+const _turnDnsCache = new Map();
+const _turnDnsPending = new Map();
+const _turnDnsEndpoints = [
+  'https://dns.alidns.com/resolve',
+  'https://cloudflare-dns.com/dns-query',
+  'https://dns.google/resolve'
+];
+
+const _turnConcat = (...chunks) => {
+  const size = chunks.reduce((sum, chunk) => sum + (chunk?.byteLength || 0), 0);
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    if (!chunk?.byteLength) continue;
+    const bytes = chunk instanceof Uint8Array
+      ? chunk
+      : new Uint8Array(chunk.buffer || chunk, chunk.byteOffset || 0, chunk.byteLength);
+    out.set(bytes, offset);
+    offset += bytes.byteLength;
+  }
+  return out;
+};
+
+const _turnToBytes = value => value instanceof Uint8Array
+  ? value
+  : ArrayBuffer.isView(value)
+    ? new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+    : new Uint8Array(value);
+
+const _turnEqual = (left, right) => {
+  if (!left || !right || left.byteLength !== right.byteLength) return false;
+  let diff = 0;
+  for (let i = 0; i < left.byteLength; i++) diff |= left[i] ^ right[i];
+  return diff === 0;
+};
+
+const _turnWithTimeout = (promise, message, timeout = TURN_CONNECT_TIMEOUT_MS) => {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), timeout);
+    })
+  ]).finally(() => clearTimeout(timer));
+};
+
+const _turnStripBrackets = value => {
+  const text = String(value || '').trim();
+  return text.startsWith('[') && text.endsWith(']') ? text.slice(1, -1) : text;
+};
+
+const _turnIsIPv4 = value => {
+  const parts = String(value || '').split('.');
+  return parts.length === 4 && parts.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+};
+
+const _turnIPv6Bytes = value => {
+  let text = _turnStripBrackets(value).toLowerCase();
+  if (!text.includes(':')) throw new Error('TURN invalid IPv6');
+  if (text.includes('.')) {
+    const index = text.lastIndexOf(':');
+    const ipv4 = text.slice(index + 1);
+    if (!_turnIsIPv4(ipv4)) throw new Error('TURN invalid IPv6');
+    const octets = ipv4.split('.').map(Number);
+    text = text.slice(0, index) + ':' +
+      ((octets[0] << 8) | octets[1]).toString(16) + ':' +
+      ((octets[2] << 8) | octets[3]).toString(16);
+  }
+  const sides = text.split('::');
+  if (sides.length > 2) throw new Error('TURN invalid IPv6');
+  const left = sides[0] ? sides[0].split(':') : [];
+  const right = sides[1] ? sides[1].split(':') : [];
+  if (sides.length === 1 && left.length !== 8) throw new Error('TURN invalid IPv6');
+  if (left.length + right.length > 8) throw new Error('TURN invalid IPv6');
+  const groups = sides.length === 2
+    ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right]
+    : left;
+  if (groups.length !== 8) throw new Error('TURN invalid IPv6');
+  const out = new Uint8Array(16);
+  groups.forEach((group, index) => {
+    if (!/^[0-9a-f]{1,4}$/i.test(group || '0')) throw new Error('TURN invalid IPv6');
+    const number = parseInt(group || '0', 16);
+    out[index * 2] = number >> 8;
+    out[index * 2 + 1] = number & 0xff;
+  });
+  return out;
+};
+
+const _turnIsIPv6 = value => {
+  try {
+    _turnIPv6Bytes(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const _turnParseHostPort = (value, defaultPort) => {
+  const text = String(value || '').trim();
+  if (!text) return ['', defaultPort];
+  if (text.startsWith('[')) {
+    const match = text.match(/^\[([^\]]+)\](?::(\d+))?$/);
+    return match ? [match[1], Number(match[2] || defaultPort)] : ['', defaultPort];
+  }
+  const colonCount = (text.match(/:/g) || []).length;
+  if (colonCount > 1) return [text, defaultPort];
+  const index = text.lastIndexOf(':');
+  if (index > 0 && /^\d+$/.test(text.slice(index + 1))) {
+    return [text.slice(0, index), Number(text.slice(index + 1))];
+  }
+  return [text, defaultPort];
+};
+
+const _turnDecodeBase64 = value => {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(normalized.length + (4 - normalized.length % 4) % 4, '=');
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return _turnDecoder.decode(bytes);
+};
+
+const _turnParseEndpoint = (value, tls) => {
+  let text = String(value || '').trim().replace(/^(?:turns?):\/\//i, '');
+  if (!text || text.includes(',')) throw new Error('TURN only one server is supported');
+  const at = text.lastIndexOf('@');
+  let auth = at >= 0 ? text.slice(0, at) : '';
+  let hostPort = at >= 0 ? text.slice(at + 1) : text;
+  try { auth = decodeURIComponent(auth); } catch {}
+  try { hostPort = decodeURIComponent(hostPort); } catch {}
+  let username = null;
+  let password = null;
+  if (auth) {
+    if (!auth.includes(':')) {
+      try {
+        const decoded = _turnDecodeBase64(auth);
+        if (decoded.includes(':')) auth = decoded;
+      } catch {}
+    }
+    const separator = auth.indexOf(':');
+    if (separator < 0) throw new Error('TURN invalid credentials');
+    username = auth.slice(0, separator);
+    password = auth.slice(separator + 1);
+  }
+  const [hostname, port] = _turnParseHostPort(hostPort, tls ? 5349 : 3478);
+  if (!hostname || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('TURN invalid server');
+  }
+  return { hostname: _turnStripBrackets(hostname), port, username, password, tls };
+};
+
+function parseTurnProxyConfig(value) {
+  let text = String(value || '');
+  for (let i = 0; i < 2; i++) {
+    try {
+      const decoded = decodeURIComponent(text);
+      if (decoded === text) break;
+      text = decoded;
+    } catch {
+      break;
+    }
+  }
+  const match = text.match(/(?:^|\/)(turns?)(?:(:\/\/)|=)(?:(turns?):\/\/)?([^?#\s]+)/i);
+  if (!match) return null;
+  const tls = (match[3] || match[1]).toLowerCase() === 'turns';
+  return {
+    cfg: _turnParseEndpoint(match[4], tls),
+    global: Boolean(match[2])
+  };
+}
+
+const _turnCacheSet = (key, value, ttl) => {
+  if (!_turnDnsCache.has(key) && _turnDnsCache.size >= TURN_DNS_CACHE_LIMIT) {
+    _turnDnsCache.delete(_turnDnsCache.keys().next().value);
+  }
+  _turnDnsCache.set(key, { value, expires: Date.now() + ttl });
+};
+
+const _turnQueryDns = async (hostname, type) => {
+  const key = type + ':' + hostname.toLowerCase();
+  const cached = _turnDnsCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.value;
+  if (cached) _turnDnsCache.delete(key);
+  if (_turnDnsPending.has(key)) return _turnDnsPending.get(key);
+  const pending = (async () => {
+    const recordType = type === 'AAAA' ? 28 : 1;
+    for (const endpoint of _turnDnsEndpoints) {
+      try {
+        const response = await _turnWithTimeout(fetch(
+          endpoint + '?name=' + encodeURIComponent(hostname) + '&type=' + type,
+          { headers: { Accept: 'application/dns-json' } }
+        ), 'TURN DNS request timed out');
+        if (!response.ok) continue;
+        const data = await response.json();
+        const values = (data.Answer || data.answer || [])
+          .filter(record => Number(record.type) === recordType)
+          .map(record => String(record.data || '').replace(/\.$/, ''))
+          .filter(value => type === 'A' ? _turnIsIPv4(value) : _turnIsIPv6(value));
+        if (values.length) {
+          _turnCacheSet(key, values, TURN_DNS_TTL_MS);
+          return values;
+        }
+      } catch {}
+    }
+    _turnCacheSet(key, [], TURN_DNS_NEGATIVE_TTL_MS);
+    return [];
+  })();
+  _turnDnsPending.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    _turnDnsPending.delete(key);
+  }
+};
+
+const _turnResolveTarget = async (hostname, familyHint) => {
+  const host = _turnStripBrackets(hostname);
+  if (_turnIsIPv4(host)) return [{ address: host, family: 'ipv4' }];
+  if (_turnIsIPv6(host)) return [{ address: host, family: 'ipv6' }];
+  const wants4 = familyHint !== 'ipv6';
+  const wants6 = familyHint !== 'ipv4';
+  const [ipv4, ipv6] = await Promise.all([
+    wants4 ? _turnQueryDns(host, 'A') : Promise.resolve([]),
+    wants6 ? _turnQueryDns(host, 'AAAA') : Promise.resolve([])
+  ]);
+  return [
+    ...ipv4.map(address => ({ address, family: 'ipv4' })),
+    ...ipv6.map(address => ({ address, family: 'ipv6' }))
+  ];
+};
+
+const _turnOpenNative = async (openSocket, hostname, port, tls) => {
+  const socket = openSocket(
+    { hostname, port },
+    tls ? { secureTransport: 'on' } : undefined
+  );
+  if (socket.opened) {
+    await _turnWithTimeout(socket.opened, tls ? 'TURNS TLS connection timed out' : 'TURN connection timed out');
+  }
+  return socket;
+};
+
+const _turnOpenCustomTls = async (openSocket, hostname, port) => {
+  const raw = await _turnOpenNative(openSocket, hostname, port, false);
+  const client = new TlsClient(raw, {
+    serverName: _turnIsIPv4(hostname) || _turnIsIPv6(hostname) ? '' : hostname,
+    timeout: TURN_CONNECT_TIMEOUT_MS
+  });
+  try {
+    await _turnWithTimeout(client.handshake(), 'TURNS custom TLS handshake timed out');
+  } catch (error) {
+    try { raw.close(); } catch {}
+    throw error;
+  }
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try { client.close(); } catch {}
+    try { raw.close(); } catch {}
+  };
+  const readable = new ReadableStream({
+    async pull(controller) {
+      try {
+        const value = await client.read();
+        if (value === null) {
+          controller.close();
+          close();
+        } else if (value?.byteLength) {
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        try { controller.error(error); } catch {}
+        close();
+      }
+    },
+    cancel: close
+  });
+  const writable = new WritableStream({
+    write(chunk) {
+      return client.write(_turnToBytes(chunk));
+    },
+    close,
+    abort: close
+  });
+  return {
+    readable,
+    writable,
+    opened: Promise.resolve(),
+    closed: raw.closed,
+    close
+  };
+};
+
+const _turnOpenTransport = async (openSocket, cfg) => {
+  if (!cfg.tls) return _turnOpenNative(openSocket, cfg.hostname, cfg.port, false);
+  if (!_turnIsIPv4(cfg.hostname) && !_turnIsIPv6(cfg.hostname)) {
+    let nativeSocket = null;
+    try {
+      nativeSocket = await _turnOpenNative(openSocket, cfg.hostname, cfg.port, true);
+      return nativeSocket;
+    } catch {
+      try { nativeSocket?.close(); } catch {}
+    }
+  }
+  return _turnOpenCustomTls(openSocket, cfg.hostname, cfg.port);
+};
+
+const _turnPad = length => -length & 3;
+
+const _turnAttribute = (type, value) => {
+  const bytes = _turnToBytes(value);
+  const out = new Uint8Array(4 + bytes.byteLength + _turnPad(bytes.byteLength));
+  const view = new DataView(out.buffer);
+  view.setUint16(0, type);
+  view.setUint16(2, bytes.byteLength);
+  out.set(bytes, 4);
+  return out;
+};
+
+const _turnRandomId = () => crypto.getRandomValues(new Uint8Array(12));
+
+const _turnMessage = (type, id, attributes) => {
+  const body = _turnConcat(...attributes);
+  const header = new Uint8Array(20);
+  const view = new DataView(header.buffer);
+  view.setUint16(0, type);
+  view.setUint16(2, body.byteLength);
+  header.set(TURN_MAGIC, 4);
+  header.set(id, 8);
+  return _turnConcat(header, body);
+};
+
+const _turnParseMessage = data => {
+  if (data.byteLength < 20) throw new Error('TURN short response');
+  if (TURN_MAGIC.some((value, index) => data[4 + index] !== value)) {
+    throw new Error('TURN invalid magic cookie');
+  }
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const bodyLength = view.getUint16(2);
+  if (20 + bodyLength !== data.byteLength || bodyLength % 4) {
+    throw new Error('TURN invalid response length');
+  }
+  const attributes = new Map();
+  for (let offset = 20; offset + 4 <= data.byteLength;) {
+    const type = view.getUint16(offset);
+    const length = view.getUint16(offset + 2);
+    if (offset + 4 + length > data.byteLength) throw new Error('TURN invalid attribute');
+    attributes.set(type, data.slice(offset + 4, offset + 4 + length));
+    offset += 4 + length + _turnPad(length);
+  }
+  return {
+    type: view.getUint16(0),
+    id: data.slice(8, 20),
+    attributes
+  };
+};
+
+const _turnReadMessage = async (context, label) => {
+  const pull = async () => {
+    const { value, done } = await _turnWithTimeout(context.reader.read(), label);
+    if (done || !value) throw new Error('TURN server closed connection');
+    context.buffer = _turnConcat(context.buffer, _turnToBytes(value));
+  };
+  while (context.buffer.byteLength < 20) await pull();
+  const size = 20 + ((context.buffer[2] << 8) | context.buffer[3]);
+  if (size > 65555) throw new Error('TURN response too large');
+  while (context.buffer.byteLength < size) await pull();
+  const message = _turnParseMessage(context.buffer.slice(0, size));
+  context.buffer = context.buffer.byteLength > size
+    ? context.buffer.slice(size)
+    : new Uint8Array(0);
+  return message;
+};
+
+const _turnSignMessage = async (message, key) => {
+  const signed = new Uint8Array(message);
+  const view = new DataView(signed.buffer);
+  view.setUint16(2, view.getUint16(2) + 24);
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    key,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const signature = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, signed));
+  return _turnConcat(signed, _turnAttribute(TURN_ATTR.MESSAGE_INTEGRITY, signature));
+};
+
+const _turnErrorCode = value => value?.byteLength >= 4
+  ? (value[2] & 7) * 100 + value[3]
+  : 0;
+
+const _turnUint32 = value => {
+  const out = new Uint8Array(4);
+  new DataView(out.buffer).setUint32(0, value >>> 0);
+  return out;
+};
+
+const _turnAuthAttributes = auth => auth.key
+  ? [
+      _turnAttribute(TURN_ATTR.USERNAME, _turnEncoder.encode(auth.username)),
+      _turnAttribute(TURN_ATTR.REALM, _turnEncoder.encode(auth.realm)),
+      _turnAttribute(TURN_ATTR.NONCE, auth.nonce)
+    ]
+  : [];
+
+const _turnUpdateAuth = async (auth, cfg, message) => {
+  const nonce = message.attributes.get(TURN_ATTR.NONCE);
+  const realmBytes = message.attributes.get(TURN_ATTR.REALM);
+  if (!nonce?.byteLength) throw new Error('TURN authentication nonce missing');
+  const realm = realmBytes?.byteLength ? _turnDecoder.decode(realmBytes) : auth.realm;
+  if (!realm) throw new Error('TURN authentication realm missing');
+  if (cfg.username === null || cfg.password === null) {
+    throw new Error('TURN credentials required');
+  }
+  auth.username = cfg.username;
+  auth.realm = realm;
+  auth.nonce = nonce;
+  auth.key = new Uint8Array(await crypto.subtle.digest(
+    'MD5',
+    _turnEncoder.encode(cfg.username + ':' + realm + ':' + cfg.password)
+  ));
+};
+
+const _turnPeerValue = (address, port, id) => {
+  const raw = _turnIsIPv4(address)
+    ? new Uint8Array(address.split('.').map(Number))
+    : _turnIPv6Bytes(address);
+  const mask = _turnConcat(TURN_MAGIC, id);
+  const value = new Uint8Array(4 + raw.byteLength);
+  value[1] = raw.byteLength === 4 ? 1 : 2;
+  new DataView(value.buffer).setUint16(2, port ^ 0x2112);
+  for (let i = 0; i < raw.byteLength; i++) value[4 + i] = raw[i] ^ mask[i];
+  return value;
+};
+
+const _turnExchange = async (
+  context,
+  cfg,
+  requestType,
+  successType,
+  createAttributes,
+  options = {}
+) => {
+  const signed = options.signed !== false;
+  const allowError = Boolean(options.allowError);
+  const retryStale = options.retryStale !== false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const id = _turnRandomId();
+    const attributes = [
+      ...(createAttributes ? createAttributes(id) : []),
+      ...(signed ? _turnAuthAttributes(context.auth) : [])
+    ];
+    let request = _turnMessage(requestType, id, attributes);
+    if (signed && context.auth.key) request = await _turnSignMessage(request, context.auth.key);
+    await _turnWithTimeout(context.writer.write(request), 'TURN request timed out');
+    for (let skipped = 0; skipped < 16; skipped++) {
+      const response = await _turnReadMessage(context, 'TURN response timed out');
+      if (!_turnEqual(response.id, id)) continue;
+      if (response.type === successType) return { ok: true, message: response };
+      if (response.type === (successType | 0x0010)) {
+        const code = _turnErrorCode(response.attributes.get(TURN_ATTR.ERROR_CODE));
+        if (code === 438 && retryStale && attempt === 0) {
+          await _turnUpdateAuth(context.auth, cfg, response);
+          break;
+        }
+        if (allowError) return { ok: false, code, message: response };
+        throw new Error('TURN request failed: ' + (code || response.type));
+      }
+      throw new Error('TURN unexpected response: ' + response.type);
+    }
+  }
+  throw new Error('TURN transaction did not complete');
+};
+
+const _turnLifetime = message => {
+  const value = message.attributes.get(TURN_ATTR.LIFETIME);
+  return value?.byteLength === 4
+    ? new DataView(value.buffer, value.byteOffset, value.byteLength).getUint32(0)
+    : 600;
+};
+
+async function _turnConnectSingle(openSocket, cfg, targetAddress, targetPort) {
+  let controlSocket = null;
+  let dataSocket = null;
+  let controlReader = null;
+  let controlWriter = null;
+  let dataReader = null;
+  let dataWriter = null;
+  let refreshTimer = null;
+  let closed = false;
+  let resolveClosed;
+  const closedPromise = new Promise(resolve => { resolveClosed = resolve; });
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    if (refreshTimer) clearTimeout(refreshTimer);
+    try { controlReader?.cancel(); } catch {}
+    try { dataReader?.cancel(); } catch {}
+    try { controlReader?.releaseLock(); } catch {}
+    try { controlWriter?.releaseLock(); } catch {}
+    try { dataReader?.releaseLock(); } catch {}
+    try { dataWriter?.releaseLock(); } catch {}
+    try { controlSocket?.close(); } catch {}
+    try { dataSocket?.close(); } catch {}
+    resolveClosed();
+  };
+  try {
+    controlSocket = await _turnOpenTransport(openSocket, cfg);
+    controlWriter = controlSocket.writable.getWriter();
+    controlReader = controlSocket.readable.getReader();
+    const auth = { key: null, username: null, realm: '', nonce: null };
+    const control = {
+      reader: controlReader,
+      writer: controlWriter,
+      buffer: new Uint8Array(0),
+      auth
+    };
+    const requestedTransport = _turnAttribute(
+      TURN_ATTR.REQUESTED_TRANSPORT,
+      new Uint8Array([6, 0, 0, 0])
+    );
+    let allocate = await _turnExchange(
+      control,
+      cfg,
+      TURN_TYPE.ALLOCATE_REQUEST,
+      TURN_TYPE.ALLOCATE_SUCCESS,
+      () => [requestedTransport],
+      { signed: false, allowError: true, retryStale: false }
+    );
+    if (!allocate.ok) {
+      if (allocate.code !== 401) throw new Error('TURN Allocate failed: ' + allocate.code);
+      await _turnUpdateAuth(auth, cfg, allocate.message);
+      allocate = await _turnExchange(
+        control,
+        cfg,
+        TURN_TYPE.ALLOCATE_REQUEST,
+        TURN_TYPE.ALLOCATE_SUCCESS,
+        () => [requestedTransport]
+      );
+    }
+    const lifetime = _turnLifetime(allocate.message);
+    const peerAttributes = id => [
+      _turnAttribute(TURN_ATTR.XOR_PEER_ADDRESS, _turnPeerValue(targetAddress, targetPort, id))
+    ];
+    await _turnExchange(
+      control,
+      cfg,
+      TURN_TYPE.CREATE_PERMISSION_REQUEST,
+      TURN_TYPE.CREATE_PERMISSION_SUCCESS,
+      peerAttributes
+    );
+    const connected = await _turnExchange(
+      control,
+      cfg,
+      TURN_TYPE.CONNECT_REQUEST,
+      TURN_TYPE.CONNECT_SUCCESS,
+      peerAttributes
+    );
+    const connectionId = connected.message.attributes.get(TURN_ATTR.CONNECTION_ID);
+    if (!connectionId?.byteLength) throw new Error('TURN Connection ID missing');
+
+    dataSocket = await _turnOpenTransport(openSocket, cfg);
+    dataWriter = dataSocket.writable.getWriter();
+    dataReader = dataSocket.readable.getReader();
+    const dataContext = {
+      reader: dataReader,
+      writer: dataWriter,
+      buffer: new Uint8Array(0),
+      auth
+    };
+    await _turnExchange(
+      dataContext,
+      cfg,
+      TURN_TYPE.CONNECTION_BIND_REQUEST,
+      TURN_TYPE.CONNECTION_BIND_SUCCESS,
+      () => [_turnAttribute(TURN_ATTR.CONNECTION_ID, connectionId)]
+    );
+    const firstPayload = dataContext.buffer;
+    dataContext.buffer = new Uint8Array(0);
+
+    const scheduleRefresh = () => {
+      if (closed) return;
+      const delay = Math.max(30000, Math.min(Math.floor(lifetime * 500), 300000));
+      refreshTimer = setTimeout(async () => {
+        try {
+          await _turnExchange(
+            control,
+            cfg,
+            TURN_TYPE.REFRESH_REQUEST,
+            TURN_TYPE.REFRESH_SUCCESS,
+            () => [_turnAttribute(TURN_ATTR.LIFETIME, _turnUint32(lifetime))]
+          );
+          scheduleRefresh();
+        } catch {
+          close();
+        }
+      }, delay);
+    };
+    scheduleRefresh();
+
+    const readable = new ReadableStream({
+      start(controller) {
+        if (firstPayload?.byteLength) controller.enqueue(firstPayload);
+      },
+      async pull(controller) {
+        try {
+          const { value, done } = await dataReader.read();
+          if (done) {
+            controller.close();
+            close();
+          } else if (value?.byteLength) {
+            controller.enqueue(_turnToBytes(value));
+          }
+        } catch (error) {
+          try { controller.error(error); } catch {}
+          close();
+        }
+      },
+      cancel: close
+    });
+    const writable = new WritableStream({
+      async write(chunk) {
+        if (closed) throw new Error('TURN connection closed');
+        try {
+          await dataWriter.write(_turnToBytes(chunk));
+        } catch (error) {
+          close();
+          throw error;
+        }
+      },
+      close,
+      abort: close
+    });
+    return {
+      readable,
+      writable,
+      opened: Promise.resolve(),
+      closed: closedPromise,
+      close
+    };
+  } catch (error) {
+    close();
+    throw error;
+  }
+}
+
+async function connectViaTurnProxy(openSocket, cfg, targetHost, targetPort, familyHint = 'domain') {
+  const targets = await _turnResolveTarget(targetHost, familyHint);
+  if (!targets.length) throw new Error('TURN target DNS resolution failed');
+  let lastError = null;
+  for (const target of targets) {
+    try {
+      return await _turnConnectSingle(openSocket, cfg, target.address, targetPort);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('TURN connection failed');
+}
+
 // =============================================================================
 // 🕸️ 代理配置解析 (混淆版)
 // =============================================================================
@@ -254,41 +951,66 @@ const parserSq = (raw) => {
   return { username, password, hostname, port };
 };
 
-function parsePC(path) {
-  let proxyIP = null, sq = null, enSq = null, gp = null;
+function parsePC(url) {
+  const path = url.pathname;
+  let proxyIP = null, sq = null, enSq = null, gp = null, turn = null;
 
-  // 1. 全局代理 (动态正则)
-  const reG = new RegExp(`(${P_S}5?|https?):\\/\\/([^/#?]+)`, 'i');
+  // TURN/TURNS：:// 为全局代理，= 为直连失败后回落
+  const turnRoute = parseTurnProxyConfig(path);
+  if (turnRoute) {
+    if (turnRoute.global) gp = { type: 'turn', cfg: turnRoute.cfg };
+    else turn = turnRoute.cfg;
+    return { proxyIP, sq, enSq, gp, turn };
+  }
+
+  // 全局 SOCKS5 / HTTP / HTTPS
+  const reG = new RegExp('(' + P_S + '5?|https?):\\/\\/([^/#?]+)', 'i');
   const gm = path.match(reG);
   if (gm) {
     try {
-        const cfg = parserSq(gm[2]);
-        const type = gm[1].toLowerCase().includes('5') || gm[1].includes(P_S) ? P_S5 : 'http';
-        gp = { type, cfg };
-        return { proxyIP, sq, enSq, gp };
-    } catch(e) {}
+      const cfg = parserSq(gm[2]);
+      const type = gm[1].toLowerCase().includes('5') || gm[1].includes(P_S) ? P_S5 : 'http';
+      gp = { type, cfg };
+      return { proxyIP, sq, enSq, gp, turn };
+    } catch {}
   }
 
-  // 2. 局部 IP（排除代理前缀）
+  // 局部 ProxyIP
   const im = path.match(/(?:^|\/)(?:proxy)?ip[=\/]([^?#]+)/i);
-  const hasSocks = path.match(new RegExp(`(?:^|\\/)(${P_S}5?|s5|http)[=\\/]`, 'i'));
-  if (im && !hasSocks) {
-    const seg = im[1];
-    const [addr, port = 443] = parseAddressPort(seg);
+  const hasProxy = path.match(new RegExp('(?:^|\\/)(' + P_S + '5?|s5|http|turns?)[=\\/]', 'i'));
+  if (im && !hasProxy) {
+    const [addr, port = 443] = parseAddressPort(im[1]);
     proxyIP = { address: addr.includes('[') ? addr.slice(1, -1) : addr, port: +port };
   }
 
-  // 3. 局部 S5 / HTTP
-  const reL = new RegExp(`(?:^|\\/)(${P_S}5?|s5|http)[=\\/]([^/#?]+)`, 'i');
+  // 局部 SOCKS5 / HTTP
+  const reL = new RegExp('(?:^|\\/)(' + P_S + '5?|s5|http)[=\\/]([^/#?]+)', 'i');
   const lm = path.match(reL);
   if (lm) {
     try {
-        sq = parserSq(lm[2]);
-        enSq = lm[1].toLowerCase().includes('http') ? 'http' : P_S5;
-    } catch(e) {}
+      sq = parserSq(lm[2]);
+      enSq = lm[1].toLowerCase().includes('http') ? 'http' : P_S5;
+    } catch {}
   }
 
-  return { proxyIP, sq, enSq, gp };
+  // 查询参数
+  for (const key of ['turn', 'turns']) {
+    const value = url.searchParams.get(key);
+    if (!value || turn || gp) continue;
+    const parsed = parseTurnProxyConfig(key + '=' + value);
+    if (!parsed) continue;
+    if (
+      url.searchParams.has('globalproxy') ||
+      /^(?:1|true)$/i.test(url.searchParams.get('global') || '')
+    ) {
+      gp = { type: 'turn', cfg: parsed.cfg };
+    } else {
+      turn = parsed.cfg;
+    }
+    break;
+  }
+
+  return { proxyIP, sq, enSq, gp, turn };
 }
 
 // =============================================================================
@@ -364,7 +1086,7 @@ class Pool {
   enableLarge = () => { this.large = true; }; reset = () => { this.ptr = 0; this.pool.length = 0; this.large = false; };
 }
 
-const handle = (ws, pip, sq, enSq, gp, uid) => {
+const handle = (ws, pip, sq, enSq, gp, turn, uid) => {
   const pool = new Pool(); let sock, w, r, info, first = true, rxBytes = 0, stalls = 0, reconns = 0;
   let lastAct = Date.now(), conn = false, reading = false; const tmrs = {}, pend = [];
   let pendBytes = 0, score = 1.0, lastChk = Date.now(), lastRx = 0;
@@ -400,16 +1122,43 @@ const handle = (ws, pip, sq, enSq, gp, uid) => {
   };
 
   const tryConnect = async (host, port, addressType) => {
+    const family = addressType === 1 ? 'ipv4' : addressType === 3 ? 'ipv6' : 'domain';
+    const openSocket = (address, options) => _(address, options);
     if (gp) {
-      if (gp.type === P_S5) return await connSq(addressType, host, port, gp.cfg);
-      if (gp.type === 'http') return await connHttp(addressType, host, port, gp.cfg);
+      if (gp.type === P_S5) return connSq(addressType, host, port, gp.cfg);
+      if (gp.type === 'http') return connHttp(addressType, host, port, gp.cfg);
+      if (gp.type === 'turn') {
+        return connectViaTurnProxy(openSocket, gp.cfg, host, port, family);
+      }
     }
-    try { const s = _({ hostname: host, port }); if (s.opened) await s.opened; return s; } 
-    catch (err) {
-      if (!sq && !pip) throw err;
-      if (sq) { try { const ls = enSq === 'http' ? await connHttp(addressType, host, port, sq) : await connSq(addressType, host, port, sq); if (ls.opened) await ls.opened; return ls; } catch {} }
-      if (pip) { try { const ps = _({ hostname: pip.address, port: pip.port }); if (ps.opened) await ps.opened; return ps; } catch {} }
-      throw err;
+    try {
+      const socket = _({ hostname: host, port });
+      if (socket.opened) await socket.opened;
+      return socket;
+    } catch (directError) {
+      if (!sq && !turn && !pip) throw directError;
+      if (sq) {
+        try {
+          const socket = enSq === 'http'
+            ? await connHttp(addressType, host, port, sq)
+            : await connSq(addressType, host, port, sq);
+          if (socket.opened) await socket.opened;
+          return socket;
+        } catch {}
+      }
+      if (turn) {
+        try {
+          return await connectViaTurnProxy(openSocket, turn, host, port, family);
+        } catch {}
+      }
+      if (pip) {
+        try {
+          const socket = _({ hostname: pip.address, port: pip.port });
+          if (socket.opened) await socket.opened;
+          return socket;
+        } catch {}
+      }
+      throw directError;
     }
   };
 
@@ -1136,11 +1885,11 @@ export default {
       }
       
       // 🟢 代理入口 - 混淆版
-      const { proxyIP, sq, enSq, gp } = parsePC(url.pathname);
+      const { proxyIP, sq, enSq, gp, turn } = parsePC(url);
       const { 0: c, 1: s } = new WebSocketPair();
       s.accept();
       s.binaryType = 'arraybuffer';
-      handle(s, proxyIP, sq, enSq, gp, _UUID); 
+      handle(s, proxyIP, sq, enSq, gp, turn, _UUID);
       return new Response(null, { status: 101, webSocket: c });
 
   } catch (err) {

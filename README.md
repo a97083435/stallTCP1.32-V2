@@ -96,13 +96,15 @@
   - [核心功能](#-核心功能)
   - [智能客户端识别与自动转换](#-智能客户端识别与自动转换)
   - [节点生成规则详解](#-节点生成规则详解)
-- [SOCKS5/HTTP 代理配置详解](#-socks5http-代理配置详解)
+- [Snippets 多协议代理配置详解](#-snippets-多协议代理配置详解)
   - [1. 完整代理支持](#1-完整代理支持)
-  - [2. 高级地址解析](#2-高级地址解析)
-  - [3. 智能连接处理](#3-智能连接处理)
-  - [4. 代理配置格式](#4-代理配置格式)
-  - [5. 性能优化](#5-性能优化)
-  - [6. 安全特性](#6-安全特性)
+  - [2. ProxyIP 中转](#2-proxyip-中转)
+  - [3. SOCKS5 代理](#3-socks5-代理)
+  - [4. HTTP/HTTPS CONNECT 代理](#4-httphttps-connect-代理)
+  - [5. TURN/TURNS 中继](#5-turnturns-中继)
+  - [6. 回落顺序、认证与路径编码](#6-回落顺序认证与路径编码)
+  - [7. 性能优化](#7-性能优化)
+  - [8. 安全特性](#8-安全特性)
 - [UI 特性说明](#-ui-特性说明)
 - [登录与安全](#-登录与安全)
   - [会话管理机制详解](#-会话管理机制详解)
@@ -132,7 +134,7 @@
 
 它集成了 **自适应订阅生成**、**优选IP支持**、**智能白名单**、**Telegram 实时通知**（Worker 版） 以及 **可视化的后台管理面板**。
 
-**新增全局http** 、**全局socks5** 、**替换1.32核心逻辑、传输流** 、**ECH 自动注入** 、**Desire 裂变模式**
+**Snippets 新增全局/局部 SOCKS5、HTTP/HTTPS CONNECT、TURN/TURNS**，并保留 **stallTCP 1.32 核心逻辑、ECH 自动注入、Desire 裂变模式**。
 
 ---
 
@@ -191,7 +193,7 @@ const UUID = "06b65903-406d-4a41-8463-6fd5c0ee7798"; // 可用的uuid
 const WP = "123456";  // 登录密码
 const SUB_PWD = "123456";  // 订阅密码
 let PIP = 'Pro'+'xyIP.US.'+'cm'+'liussss.net';  // 自定义的中转ip
-let SUB = 'sub.'+'cm'+'liussss.net';  // 自定义的订阅源
+let SUB = 'https://owo.o00o.ooo/';  // 自定义的订阅源
 const NU = "https://nva.saas.ae.kg/"; // 🧭 导航按钮链接
 const TG = "https://t.me/zyssadmin";   // 群组
 const PC = "https://kaic.hidns.co/";  // 中转检测站
@@ -202,9 +204,10 @@ const SBV11 = 'https://raw.githubusercontent.com/sinspired/su'+'b-st'+'ore-templ
 const AI = "";  // 管理员IP白名单
 const ST = "";  // Desire token（填入后SUB填Desire域名走裂变模式，留空走原有逻辑）
 const ECH = true;  // ECH 开关（true=开启，false=关闭）
-const ECH_DNS = 'https://do'+'h.'+'cm'+'liu'+'ssss'+'.net/'+'C'+'ML'+'iu'+'ssss';  // DoH 查询地址
+const ECH_DNS = 'https://odvr.nic.cz/doh';  // 主 DoH 查询地址
+const ECH_B = 'https://lh.ddd.oaifree.com/query-dns';  // 备用 DoH 查询地址
 const ECH_SNI = 'cl'+'oudf'+'lare'+'-ech'+'.com';  // ECH 解析域名
-const FP = ECH ? 'chrome' : 'randomized';  // 指纹：ECH开→chrome，关→randomized
+const FP = 'chrome';  // ECH 开启和关闭均使用 chrome 指纹
 //结束
 ```
 
@@ -238,7 +241,7 @@ const FP = ECH ? 'chrome' : 'randomized';  // 指纹：ECH开→chrome，关→r
 | `WP` | 后台登录密码 | `123456` | ❌ 不需要 | ✅ 必改 |
 | `SUB_PWD` | 订阅路径密码 | `123456` | ❌ 不需要 | ✅ 必改 |
 | `PIP` | ProxyIP 中转地址 | `ProxyIP.US.CMLiussss.net` | ✅ 建议拆分 | ✅ 可改 |
-| `SUB` | 上游订阅器域名 | `sub.cmliussss.net` | ✅ 建议拆分 | ✅ 可改 |
+| `SUB` | 上游订阅器地址 | `https://owo.o00o.ooo/` | ⚪ 看情况 | ✅ 可改 |
 | `NU` | 登录页导航链接 | `https://nva.saas.ae.kg/` | ⚪ 看情况 | ✅ 可改 |
 | `TG` | Telegram 群组链接 | `https://t.me/zyssadmin` | ⚪ 看情况 | ✅ 可改 |
 | `PC` | ProxyIP 检测站链接 | `https://kaic.hidns.co/` | ⚪ 看情况 | ✅ 可改 |
@@ -249,9 +252,10 @@ const FP = ECH ? 'chrome' : 'randomized';  // 指纹：ECH开→chrome，关→r
 | `AI` | 管理员 IP 白名单 | （空） | ❌ 不需要 | ✅ 可改 |
 | `ST` | Desire 裂变 Token | （空） | ❌ 不需要 | ✅ 可改 |
 | `ECH` | ECH 开关 | `true` | ❌ 不需要 | ✅ 可改 |
-| `ECH_DNS` | DoH 查询地址 | `https://doh.cmliussss.net/CMLiussss` | ✅ 建议拆分 | ✅ 可改 |
+| `ECH_DNS` | 主 DoH 查询地址 | `https://odvr.nic.cz/doh` | ❌ 不需要 | ✅ 可改 |
+| `ECH_B` | 备用 DoH 查询地址 | `https://lh.ddd.oaifree.com/query-dns` | ❌ 不需要 | ✅ 可改 |
 | `ECH_SNI` | ECH 解析域名 | `cloudflare-ech.com` | ✅ 建议拆分 | ✅ 可改 |
-| `FP` | TLS 指纹 | ECH开→`chrome`，关→`randomized` | ❌ 不需要 | ⚪ 自动联动 |
+| `FP` | TLS 指纹 | `chrome` | ❌ 不需要 | ⚪ 固定值 |
 
 > **什么时候需要拆分？** 当你的配置值中包含公共项目名、用户名、特定域名等关键词时，建议拆分。普通的密码、UUID、自己的私有域名一般不需要拆分。
 
@@ -885,23 +889,24 @@ CREATE TABLE IF NOT EXISTS stats (date TEXT PRIMARY KEY, count INTEGER DEFAULT 0
     *   通过 DoH 二进制查询自动获取 ECH Config PEM。
     *   自动注入到 Sing-box 订阅（匹配 UUID 的节点）和 Clash 订阅（双格式 Flow + Block）。
     *   支持环境变量 `ECH_ENABLED`/`ECH_SNI`/`ECH_DNS` 覆盖（Worker 版）。
-    *   指纹自动联动：ECH 开启→`chrome`，关闭→`randomized`。
+    *   指纹统一使用 `chrome`，ECH 开启和关闭均不切换为其他指纹。
 *   **🔗 Desire 裂变模式**（Worker + Snippets 双版本支持）：
     *   通过 `SUB_TOKEN` 启用，支持 `/sub?base=节点&token=密钥` 格式。
     *   Worker 版支持环境变量 `SUB_TOKEN` 覆盖，不在后台 UI 暴露（保护 Token 隐私）。
 
 ### 🔄 核心逻辑更新
 
-> * **新增socks5全局 https全局代理**
+> * **Snippets 新增 SOCKS5、HTTP/HTTPS CONNECT、TURN/TURNS 多协议代理**
 > * **替换stallTCP1.32核心逻辑，其他不变。**
 > * **更新传输效果更加，解决telegram加载图上传图卡顿问题。**
 > * **优化YouTube传输性能更强。**
-> * **🆕 SOCKS5/HTTP 代理连接**
+> * **🆕 SOCKS5/HTTP/HTTPS 代理连接**
+> * **🆕 TURN/TURNS TCP 中继连接**
 > * **🆕 全局和局部代理切换**
 > * **🆕 IPv6 完整支持**
 > * **🆕 智能连接重试机制**
 > * **🆕 自适应传输模式**
-> * **🆕 代理认证支持**
+> * **🆕 UTF-8、Basic Auth、Base64 与 TURN 长期凭证认证支持**
 
 **核心逻辑调整（仅 Worker 版）：实现了 "二选一互斥" 逻辑。**
 > * 优先级判定：代码会先检查 SUB_DOMAIN（无论是环境变量还是硬编码）。
@@ -989,51 +994,194 @@ CREATE TABLE IF NOT EXISTS stats (date TEXT PRIMARY KEY, count INTEGER DEFAULT 0
 
 ---
 
-## 🔧 SOCKS5/HTTP 代理配置详解
+## 🔧 Snippets 多协议代理配置详解
+
+> 本节严格以当前 `公开的snippets.txt` 为准，只说明 Snippets 已验证的解析和连接能力。Worker 本轮没有修改，不能仅根据本节推断 Worker 也支持真实 HTTPS CONNECT 或 TURNS/TLS。v2rayN 的 `Path` 输入框应填写原始路径；VLESS 链接中的 `%2F`、`%3A`、`%40` 属于正常 URL 编码。
 
 ### 1. 完整代理支持
-- **SOCKS5 代理**：支持用户名/密码认证
-- **HTTP 代理**：支持 CONNECT 方法和 Basic 认证
-- **全局代理**：整个 Worker 走代理（格式：`socks5://user:pass@host:port`）
-- **局部代理**：单个连接走代理（格式：`/s5=user:pass@host:port`）
 
-### 2. 高级地址解析
-- **IPv4 支持**：标准 IPv4 地址解析
-- **IPv6 支持**：完整 IPv6 地址解析（包括 `[::1]:443` 格式）
-- **域名解析**：支持域名和端口组合
-- **Base64 认证**：支持 Base64 编码的用户名密码
+| 类型 | 全局路径 | 局部/回落路径 | 查询参数 | 默认端口 |
+|------|----------|---------------|----------|:---:|
+| ProxyIP | — | `/proxyip=...`、`/proxyip/...`、`/ip=...`、`/ip/...` | `/?proxyip=...` | 443 |
+| SOCKS5 | `/socks5://...`、`/socks://...` | `/s5=...`、`/socks5=...`、`/socks=...` | `/?s5=...` | 1080 |
+| HTTP CONNECT | `/http://...` | `/http=...` | 不支持 | 80 |
+| HTTPS CONNECT | `/https://...` | `/https=...` | 不支持 | 443 |
+| TURN/TCP | `/turn://...` | 不支持 | 不支持 | 3478 |
+| TURNS/TLS | `/turns://...` | 不支持 | 不支持 | 5349 |
 
-### 3. 智能连接处理
-- **自适应模式**：根据网络状况自动调整传输策略
-- **缓冲模式**：小数据包批量发送，减少延迟
-- **直连模式**：大数据包直接发送，提高吞吐量
-- **智能重连**：带评分系统的指数退避重连机制
+全局 SOCKS5、HTTP、HTTPS、TURN 或 TURNS 路径匹配后直接使用指定代理，不执行 Direct、其他局部代理或 ProxyIP 回落。局部 SOCKS5/HTTP/HTTPS 和 ProxyIP 则参与回落顺序。
 
-### 4. 代理配置格式
+### 2. ProxyIP 中转
 
-#### 全局代理（整个 Worker）
-```
-socks5://user:pass@proxy.example.com:1080
-socks://user:pass@proxy.example.com:1080
-http://user:pass@proxy.example.com:8080
+ProxyIP 是兼容本项目转发方式的专用中转地址，不是普通 SOCKS5 或 HTTP 代理。支持域名、IPv4 和方括号 IPv6，端口省略时默认使用 `443`。
+
+```text
+/proxyip=proxy.example.com:443
+/proxyip/proxy.example.com:443
+/ip=1.1.1.1:443
+/ip/[2001:db8::1]:443
+/?proxyip=proxy.example.com:443
 ```
 
-#### 局部代理（单个连接）
-```
-/s5=user:pass@proxy.example.com:1080
-/socks5=user:pass@proxy.example.com:1080
-/http=user:pass@proxy.example.com:8080
-/s5=base64encoded@proxy.example.com:1080
+使用以 ProxyIP 开头的路径时，连接顺序为：
+
+```text
+direct → proxy
 ```
 
-#### ProxyIP（优选 IP）
-```
-/proxyip=1.1.1.1:443
-/ip=8.8.8.8:443
-/proxyip=[2606:4700:4700::1111]:443
+`mode=proxy` 只控制顺序，不会自动生成 ProxyIP 地址。需要强制按该顺序时，应同时给出实际地址：
+
+```text
+/?proxyip=proxy.example.com:443&mode=proxy
 ```
 
-### 5. 性能优化
+### 3. SOCKS5 代理
+
+支持无认证、用户名密码认证、UTF-8 凭证和 Base64 凭证；目标与代理地址均支持域名、IPv4 和方括号 IPv6。端口省略时默认使用 `1080`。
+
+**全局 SOCKS5：**
+
+```text
+/socks5://用户名:密码@proxy.example.com:1080
+/socks5://proxy.example.com:1080
+/socks://用户名:密码@[2001:db8::1]:1080
+```
+
+`/socks://...` 是 SOCKS5 的兼容别名，并不表示 SOCKS4。
+
+**局部 SOCKS5：**
+
+```text
+/s5=用户名:密码@proxy.example.com:1080
+/socks5=用户名:密码@proxy.example.com:1080
+/socks=用户名:密码@proxy.example.com:1080
+/?s5=用户名:密码@proxy.example.com:1080
+```
+
+局部路径默认按下面的顺序尝试：
+
+```text
+direct → s5
+```
+
+如果需要只走 SOCKS5，必须同时提供实际地址：
+
+```text
+/?s5=用户名:密码@proxy.example.com:1080&mode=s5
+```
+
+### 4. HTTP/HTTPS CONNECT 代理
+
+HTTP 与 HTTPS 均使用 CONNECT 方法；HTTP 默认端口为 `80`，HTTPS 默认端口为 `443`。HTTPS 会与代理服务器建立真实 TLS，并不是把 HTTPS 写法当作明文 HTTP。
+
+**全局代理：**
+
+```text
+/http://用户名:密码@proxy.example.com:8080
+/http://proxy.example.com
+/https://用户名:密码@proxy.example.com:443
+/https://proxy.example.com
+```
+
+**局部代理：**
+
+```text
+/http=用户名:密码@proxy.example.com:8080
+/http=proxy.example.com
+/https=用户名:密码@proxy.example.com:443
+/https=proxy.example.com
+```
+
+局部 HTTP/HTTPS 的默认顺序为：
+
+```text
+direct → HTTP/HTTPS CONNECT
+```
+
+HTTP/HTTPS 支持 Basic Auth、UTF-8 用户名密码和 Base64 凭证。当前不支持 `/?http=...` 或 `/?https=...` 查询参数。
+
+### 5. TURN/TURNS 中继
+
+TURN/TURNS 是全局 TCP 中继路径。TURN 的控制和数据连接使用普通 TCP；TURNS 的控制和数据连接均建立 TLS。
+
+| 协议 | v2rayN Path | 默认端口 |
+|------|-------------|:---:|
+| TURN | `/turn://用户名:密码@TURN服务器地址:3478` | 3478 |
+| TURNS | `/turns://用户名:密码@TURN服务器地址:5349` | 5349 |
+
+无认证服务器可以省略用户名和密码：
+
+```text
+/turn://turn.example.com
+/turns://turn.example.com
+```
+
+支持域名、IPv4 和方括号 IPv6：
+
+```text
+/turn://user:pass@18.252.251.20:3478
+/turn://user:pass@turn.example.com:3478
+/turns://user:pass@[2001:db8::1]:5349
+```
+
+对于域名目标，Snippets 会查询 A 和 AAAA 记录，并在 Cloudflare DNS 与 Google DNS 之间回退；实现包含 IPv4/IPv6 XOR 地址、顺序事务以及全部事务 ID 校验。
+
+TURN/TURNS 凭证使用原始的 `用户名:密码@地址:端口` 格式，不支持凭证 Base64。以下写法当前不支持：
+
+```text
+/turn=用户名:密码@turn.example.com:3478
+/turns=用户名:密码@turn.example.com:5349
+/?turn=用户名:密码@turn.example.com:3478
+/turn=pool.example.com!txt
+```
+
+### 6. 回落顺序、认证与路径编码
+
+没有匹配全局代理路径时，默认回落顺序为：
+
+```text
+direct → s5 → proxy
+```
+
+其中 `s5` 是内部局部代理槽位，可承载 SOCKS5、HTTP 或 HTTPS CONNECT；`proxy` 表示 ProxyIP。不存在实际代理地址时，对应步骤无法建立连接，`mode` 也不会替你生成地址。
+
+查询参数的先后顺序可以调整回落顺序：
+
+```text
+/?direct&s5=user:pass@s5.example.com:1080&proxyip=proxy.example.com:443
+/?direct&proxyip=proxy.example.com:443&s5=user:pass@s5.example.com:1080
+```
+
+分别对应：
+
+```text
+direct → SOCKS5 → ProxyIP
+direct → ProxyIP → SOCKS5
+```
+
+SOCKS5、HTTP 和 HTTPS 凭证可以只对 `用户名:密码` 做 Base64 编码：
+
+```text
+/s5=YWRtaW46cGFzczEyMw==@proxy.example.com:1080
+/http=YWRtaW46cGFzczEyMw==@proxy.example.com:8080
+/https=YWRtaW46cGFzczEyMw==@proxy.example.com:443
+```
+
+用户名或密码包含中文及特殊字符时，应先进行 URL 编码。TURN/TURNS 不使用这套 Base64 凭证格式。
+
+在 v2rayN 的 `Path` 中填写原始路径，例如：
+
+```text
+/turn://user:pass@turn.example.com:3478
+```
+
+导出成 VLESS 链接后出现下面的编码属于正常现象，无需手动填写：
+
+```text
+path=%2Fturn%3A%2F%2Fuser%3Apass%40turn.example.com%3A3478
+```
+
+### 7. 性能优化
 
 **自适应传输模式**
 - **缓冲模式**：吞吐量 < 8MB/s 或平均包大小 < 4KB
@@ -1051,12 +1199,13 @@ http://user:pass@proxy.example.com:8080
 - 对象复用池（最多 8 个）
 - 自动释放和重置
 
-### 6. 安全特性
+### 8. 安全特性
 
 **代理认证**
 - SOCKS5 用户名/密码认证
-- HTTP Basic 认证
-- Base64 编码支持
+- HTTP/HTTPS Basic Auth
+- SOCKS5、HTTP、HTTPS 支持 UTF-8 与 Base64 凭证
+- TURN/TURNS 支持匿名或长期凭证认证，TURN 凭证不使用 Base64
 
 **连接保护**
 - 最大待发送数据：2MB

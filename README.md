@@ -99,6 +99,7 @@
 - [Worker 与 Snippets 多协议代理配置详解](#-worker-与-snippets-多协议代理配置详解)
   - [1. 完整代理支持](#1-完整代理支持)
   - [2. ProxyIP 中转](#2-proxyip-中转)
+    - [空路径自动兜底](#空路径自动兜底)
   - [3. SOCKS5 代理](#3-socks5-代理)
   - [4. HTTP/HTTPS CONNECT 代理](#4-httphttps-connect-代理)
   - [5. TURN/TURNS 中继](#5-turnturns-中继)
@@ -1035,6 +1036,19 @@ direct → proxy
 /?proxyip=proxy.example.com:443&mode=proxy
 ```
 
+#### 空路径自动兜底
+
+配置的默认 ProxyIP 同时作为**连接层兜底**：当客户端路径为纯 `/`、且未通过任何方式指定代理时，自动使用该地址作为中转出口，实际连接顺序仍为 `direct → proxy`。这样即使节点链接不携带 `/proxyip=...`，也能正常访问需要中转的站点。
+
+兜底只在路径与查询参数**完全没有**指定代理时生效。已显式配置 ProxyIP、SOCKS5、HTTP/HTTPS 或 TURN/TURNS 的路径一律按原样执行，全局 `://` 代理也不受影响。
+
+取值来源：
+
+- Worker 版：环境变量 `PROXYIP` > D1 数据库 > 代码内置 `DEFAULT_PROXY_IP`，与订阅生成器使用的值一致
+- Snippets 版：直接读取顶部 `PIP` 常量
+
+该行为使本项目可直接配合第三方订阅面板使用。部分面板（如 EDT）勾选「启用自动获取」ProxyIP 后，生成的节点链接路径为纯 `/`，不携带反代参数，此时由本项目的兜底值接管。
+
 ### 3. SOCKS5 代理
 
 两版均支持无认证、用户名密码和 Base64 凭证，代理服务器端口省略时默认使用 `1080`。Snippets 支持 UTF-8 凭证、域名、IPv4 和压缩 IPv6 目标；Worker 支持域名与 IPv4 目标，用户名密码建议使用 ASCII。
@@ -1194,6 +1208,8 @@ direct → SOCKS5/HTTP → TURN/TURNS → ProxyIP
 
 只会执行已经提供实际地址的步骤。StallTCP Worker 不解析 `?s5=`、`?proxyip=`、`mode=` 或通过查询参数调整 SOCKS5/ProxyIP 顺序。
 
+路径为纯 `/`、未提供任何代理地址时，Worker 使用配置的默认 ProxyIP 兜底，顺序为 `direct → ProxyIP`，详见 [空路径自动兜底](#空路径自动兜底)。
+
 #### Snippets 回落顺序
 
 Snippets 没有匹配全局代理时，默认顺序为：
@@ -1217,6 +1233,8 @@ direct → ProxyIP → SOCKS5
 ```
 
 `mode` 只控制顺序，不会生成代理地址，必须同时提供 `s5` 或 `proxyip` 的实际值。Snippets 的 TURN/TURNS 只有全局 `://` 模式，不进入上述回落顺序。
+
+路径为纯 `/`、未提供任何代理地址时，Snippets 使用顶部 `PIP` 常量兜底，详见 [空路径自动兜底](#空路径自动兜底)。
 
 #### 凭证 Base64 与 URL 编码
 

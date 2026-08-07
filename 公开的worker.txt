@@ -951,7 +951,7 @@ const parserSq = (raw) => {
   return { username, password, hostname, port };
 };
 
-function parsePC(url) {
+function parsePC(url, fbPIP = null) {
   const path = url.pathname;
   let proxyIP = null, sq = null, enSq = null, gp = null, turn = null;
 
@@ -1008,6 +1008,12 @@ function parsePC(url) {
       turn = parsed.cfg;
     }
     break;
+  }
+
+  // 未指定任何代理方式时，回落到内置兜底地址
+  if (!proxyIP && !sq && !turn && !gp && fbPIP) {
+    const [addr, port = 443] = parseAddressPort(fbPIP);
+    proxyIP = { address: addr.includes('[') ? addr.slice(1, -1) : addr, port: +port };
   }
 
   return { proxyIP, sq, enSq, gp, turn };
@@ -1885,7 +1891,7 @@ export default {
       }
       
       // 🟢 代理入口 - 混淆版
-      const { proxyIP, sq, enSq, gp, turn } = parsePC(url);
+      const { proxyIP, sq, enSq, gp, turn } = parsePC(url, _PROXY_IP);
       const { 0: c, 1: s } = new WebSocketPair();
       s.accept();
       s.binaryType = 'arraybuffer';

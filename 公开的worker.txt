@@ -1656,17 +1656,18 @@ export default {
                       ? 'loon'
                       : null;
 
-          // 构造上游 subUrl（ST裂变/原始SUB，逻辑不变）
+          // 构造上游 subUrl：同时兼容 Desire 与 workerVless2sub 参数契约
           let _subUrl;
           {
+              const _workerSubParams = `uuid=${_UUID}&${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}`;
               if (_SUB_TOKEN) {
                   const _desireIPs = await getCustomIPs(env, _DLS);
                   const _desireIP = (_desireIPs[0] || _PROXY_IP || host);
                   const _desireNode = genNodes(host, _UUID, _PROXY_IP, _desireIP ? [_desireIP] : [], _PS);
                   const _desireBase = (typeof _desireNode === 'string' ? _desireNode : _desireNode.split('\n')[0]).split('\n')[0];
-                  _subUrl = `https://${_SUB_DOMAIN}/sub?base=${encodeURIComponent(_desireBase)}&token=${encodeURIComponent(_SUB_TOKEN)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
+                  _subUrl = `https://${_SUB_DOMAIN}/sub?base=${encodeURIComponent(_desireBase)}&token=${encodeURIComponent(_SUB_TOKEN)}&${_workerSubParams}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
               } else {
-                  _subUrl = `https://${_SUB_DOMAIN}/sub?uuid=${_UUID}&${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
+                  _subUrl = `https://${_SUB_DOMAIN}/sub?${_workerSubParams}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
               }
           }
 
@@ -2172,7 +2173,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, subToken, 
     const regularLongLink = `https://${subdomain}/sub?uuid=${uuid}&${linkParams}`;
     const baseNode = `${'vl'+'ess'}://${uuid}@${host}:443?${linkParams}#Worker`;
     const longLink = subToken
-        ? `https://${subdomain}/sub?base=${encodeURIComponent(baseNode)}&token=${encodeURIComponent(subToken)}`
+        ? `https://${subdomain}/sub?base=${encodeURIComponent(baseNode)}&token=${encodeURIComponent(subToken)}&uuid=${uuid}&${linkParams}`
         : regularLongLink;
     const safeVal = (str) => (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const jsStr = (s) => JSON.stringify(s || '').slice(1, -1);
@@ -4541,7 +4542,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, subToken, 
                 const nodeSearch = new URLSearchParams(search);
                 nodeSearch.delete('uuid');
                 const baseNode = \`vless://\${UUID}@\${host}:443?\${nodeSearch.toString()}#Worker\`;
-                const desireSearch = new URLSearchParams();
+                const desireSearch = new URLSearchParams(search);
                 desireSearch.set('base', baseNode);
                 desireSearch.set('token', subToken);
                 finalUrl = \`https://\${base}/sub?\${desireSearch.toString()}\`;
